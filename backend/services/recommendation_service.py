@@ -1,10 +1,15 @@
 from domain.interfaces import RecommendationService
 from domain.entities import UserProfile, Movie
-from typing import List
-from utils.similarity import cosine_similarity
+from typing import List, Tuple
+from sklearn.metrics.pairwise import cosine_similarity as sk_cosine_similarity
+import numpy as np
+
+def cosine_similarity(a, b):
+    # a and b are 1D lists or arrays
+    return sk_cosine_similarity([a], [b])[0][0]
 
 class DefaultRecommendationService(RecommendationService):
-    def recommend(self, user_profile: UserProfile, candidates: List[Movie]) -> List[Movie]:
+    def recommend(self, user_profile: UserProfile, candidates: List[Movie]) -> List[Tuple[float, Movie]]:
         scored = []
         for movie in candidates:
             if not movie.embedding:
@@ -15,4 +20,4 @@ class DefaultRecommendationService(RecommendationService):
             )
             scored.append((max_sim, movie))
         scored.sort(reverse=True, key=lambda x: x[0])
-        return [m for _, m in scored[:10]] 
+        return scored[:10] 

@@ -43,35 +43,35 @@ class RecommendationManager:
                 data = json.load(f)
                 watch_history = [MovieHistoryItem(**m) for m in data["movies"]]
             texts = [f"{m.title} {m.description or ''} {' '.join(m.genres)} {' '.join(m.countries)}" for m in watch_history if m.rating > 4]
-            embeddings = self.embedder.embed(texts)
+            embeddings = await self.embedder.embed(texts)
             ratings = [m.rating for m in watch_history if m.rating > 4]
             dates = [m.watched_at or "2023-01-01" for m in watch_history if m.rating > 4]
             clusters = self.clusterer.cluster(embeddings, ratings, dates)
             user_profile = UserProfile(user_id=user_id, clusters=clusters)
             try:
                 await self.vectorstore.save_user_profile(user_profile)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error in save_user_profile: {e}")
         filters = request.filters or {}
-        candidates = self.tmdb.fetch_movies(filters)
+        candidates = await self.tmdb.fetch_movies(filters)
         watched_titles = set([m.title for m in getattr(user_profile, 'movies', [])])
         filters["watched_ids"] = watched_titles
         filtered = self.filterer.filter(candidates, filters)
         texts = [f"{m.title} {m.description or ''} {' '.join(m.genres)} {' '.join(m.countries)}" for m in filtered]
-        candidate_embeddings = self.embedder.embed(texts)
+        candidate_embeddings = await self.embedder.embed(texts)
         for m, emb in zip(filtered, candidate_embeddings):
             m.embedding = emb
-        top_candidates = self.recommender.recommend(user_profile, filtered)
-        reranked = self.llm.rerank(user_profile, top_candidates)
+        top_candidates_with_sim = self.recommender.recommend(user_profile, filtered)
+        reranked = self.llm.rerank(user_profile, [m for _, m in top_candidates_with_sim])
         recs = []
-        for i, m in enumerate(top_candidates):
+        for i, (sim, m) in enumerate(top_candidates_with_sim):
             recs.append(RecommendationItem(
                 title=m.title,
                 year=m.year,
                 genres=m.genres,
                 countries=m.countries,
                 description=m.description,
-                similarity=0.0,
-                justification=reranked[0]["text"] if reranked and i == 0 else None
+                similarity=round(sim, 2),
+                justification=reranked[i]["justification"] if reranked and i < len(reranked) else None
             ))
         return RecommendationResponse(recommendations=recs) 

@@ -1,7 +1,6 @@
 from db.engine import AsyncSessionLocal
-from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
-@asynccontextmanager
-async def get_async_session():
+async def get_async_session() -> AsyncGenerator[AsyncSessionLocal, None]:
     async with AsyncSessionLocal() as session:
         yield session 
