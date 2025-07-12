@@ -9,6 +9,7 @@ from services.tmdb_service import TMDBApiService
 from services.filtering_service import DefaultFilteringService
 from services.recommendation_service import DefaultRecommendationService
 from services.llm_service import OpenAILLMService
+from repositories.vector_store import PgvectorRepository
 
 
 def get_recommendation_manager(
@@ -27,5 +28,5 @@ def get_recommendation_manager(
         filterer=filterer,
         recommender=recommender,
         llm=llm,
-        session=session,
+        vectorstore=PgvectorRepository(session),
     ) 

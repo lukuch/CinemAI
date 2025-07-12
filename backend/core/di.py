@@ -7,6 +7,7 @@ from services.filtering_service import DefaultFilteringService
 from services.recommendation_service import DefaultRecommendationService
 from services.llm_service import OpenAILLMService
 from repositories.cache import RedisCacheRepository
+from repositories.vector_store import PgvectorRepository
 
 def create_injector() -> Injector:
     injector = Injector()

@@ -5,7 +5,7 @@ from schemas.filters import FiltersResponse
 import io
 import csv
 import json
-from api.dependencies import get_recommendation_manager
+from api.recommendation_factory import get_recommendation_manager
 from repositories.user_profile import UserProfileRepository
 from managers.recommendation_manager import RecommendationManager
 
