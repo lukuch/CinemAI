@@ -16,15 +16,20 @@ class PgvectorRepository(VectorStoreRepository):
     async def save_user_profile(self, profile: DomainUserProfile):
         result = await self.session.execute(select(UserProfile).where(UserProfile.user_id == profile.user_id))
         db_profile = result.scalar_one_or_none()
-        clusters_json = orjson.dumps(
-            [{"centroid": c.centroid.vector, "average_rating": c.average_rating, "count": c.count} for c in profile.clusters]
-        ).decode()
-        movies_json = orjson.dumps([m.model_dump() for m in profile.movies] if profile.movies else []).decode()
+        clusters_list = [
+            {
+                "centroid": c.centroid.vector.tolist() if hasattr(c.centroid.vector, "tolist") else c.centroid.vector,
+                "average_rating": float(c.average_rating),
+                "count": int(c.count),
+            }
+            for c in profile.clusters
+        ]
+        movies_list = [m.model_dump() for m in profile.movies] if profile.movies else []
         if db_profile:
-            db_profile.clusters = clusters_json
-            db_profile.movies = movies_json
+            db_profile.clusters = clusters_list
+            db_profile.movies = movies_list
         else:
-            db_profile = UserProfile(user_id=profile.user_id, clusters=clusters_json, movies=movies_json)
+            db_profile = UserProfile(user_id=profile.user_id, clusters=clusters_list, movies=movies_list)
             self.session.add(db_profile)
         await self.session.commit()
         await self.session.refresh(db_profile)
@@ -36,10 +41,7 @@ class PgvectorRepository(VectorStoreRepository):
             return None
         clusters = [
             Cluster(centroid=Embedding(c["centroid"]), movies=[], average_rating=c["average_rating"], count=c["count"])
-            for c in orjson.loads(db_profile.clusters.encode())
+            for c in (db_profile.clusters or [])
         ]
-        movies = []
-        if hasattr(db_profile, "movies") and db_profile.movies:
-            for m in orjson.loads(db_profile.movies.encode()):
-                movies.append(MovieHistoryItem(**m))
+        movies = [MovieHistoryItem(**m) for m in (db_profile.movies or [])]
         return DomainUserProfile(user_id=user_id, clusters=clusters, movies=movies)
