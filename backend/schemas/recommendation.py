@@ -1,9 +1,12 @@
-from pydantic import BaseModel
 from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class RecommendationRequest(BaseModel):
     user_id: Optional[str]
     filters: Optional[dict]
+
 
 class RecommendationItem(BaseModel):
     title: str
@@ -14,5 +17,6 @@ class RecommendationItem(BaseModel):
     similarity: float
     justification: Optional[str]
 
+
 class RecommendationResponse(BaseModel):
-    recommendations: List[RecommendationItem] 
+    recommendations: List[RecommendationItem]

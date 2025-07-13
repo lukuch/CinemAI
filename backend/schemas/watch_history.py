@@ -1,5 +1,7 @@
-from pydantic import BaseModel
 from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class MovieHistoryItem(BaseModel):
     title: str
@@ -11,5 +13,6 @@ class MovieHistoryItem(BaseModel):
     description: Optional[str]
     watched_at: Optional[str]
 
+
 class WatchHistoryUpload(BaseModel):
-    movies: List[MovieHistoryItem] 
+    movies: List[MovieHistoryItem]

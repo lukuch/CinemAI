@@ -1,9 +1,15 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from pydantic import BaseModel
+
+from schemas.watch_history import MovieHistoryItem
+
+
 @dataclass
 class Embedding:
     vector: List[float]
+
 
 @dataclass
 class Movie:
@@ -16,6 +22,7 @@ class Movie:
     description: Optional[str]
     embedding: Optional[Embedding] = None
 
+
 @dataclass
 class Cluster:
     centroid: Embedding
@@ -23,7 +30,8 @@ class Cluster:
     average_rating: float
     count: int
 
-@dataclass
-class UserProfile:
+
+class UserProfile(BaseModel):
     user_id: str
-    clusters: List[Cluster] 
+    clusters: List[Cluster]
+    movies: Optional[List[MovieHistoryItem]] = None

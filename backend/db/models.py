@@ -1,7 +1,10 @@
-from sqlalchemy import Column, String, JSON
+from sqlalchemy import JSON, Column, String, Text
+
 from db.base import Base
 
+
 class UserProfile(Base):
-    __tablename__ = 'user_profiles'
+    __tablename__ = "user_profiles"
     user_id = Column(String, primary_key=True, index=True)
     clusters = Column(JSON, nullable=False)
+    movies = Column(JSON)

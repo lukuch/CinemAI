@@ -1,0 +1,41 @@
+[flake8]
+# Line length - match black configuration
+max-line-length = 127
+
+# Exclude directories and files
+exclude = 
+    .git,
+    __pycache__,
+    build,
+    dist,
+    .venv,
+    .mypy_cache,
+    .tox,
+    .eggs,
+    *.egg,
+    alembic/versions/*.py
+
+# Ignore specific error codes that conflict with black/isort
+ignore = 
+    E203,
+    E501,
+    W503,
+    W504,
+    E402,
+    F401,
+    F403
+
+# Show source code for each error
+show-source = True
+
+# Count errors
+count = True
+
+# Show statistics
+statistics = True
+
+# Maximum complexity for functions
+max-complexity = 10
+
+# Docstring convention
+docstring-convention = google 

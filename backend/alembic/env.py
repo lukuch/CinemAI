@@ -1,15 +1,17 @@
-import sys
 import os
+import sys
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.ext.asyncio import AsyncEngine
+
 from alembic import context
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from core.settings import settings
 from db.base import Base
 from db.models import UserProfile
-from core.settings import settings
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.pgvector_url)
@@ -18,16 +20,17 @@ fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
+
 def get_url():
     return settings.pgvector_url
 
+
 def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"}
-    )
+    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"})
     with context.begin_transaction():
         context.run_migrations()
+
 
 def run_migrations_online():
     connectable = engine_from_config(
@@ -36,11 +39,10 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()
