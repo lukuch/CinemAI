@@ -1,7 +1,9 @@
 import unicodedata
 from typing import Any, Dict, List
 
+from injector import inject
 from rapidfuzz import fuzz, process
+from structlog.stdlib import BoundLogger
 
 from domain.entities import Movie
 from domain.interfaces import FilteringService
@@ -38,12 +40,39 @@ def bulk_fuzzy_filter(candidates, watched_movies, threshold=85, year_tolerance=1
 
 
 class DefaultFilteringService(FilteringService):
+    @inject
+    def __init__(self, logger: BoundLogger):
+        self.logger = logger
+
     def filter(self, movies: List[Movie], filters: Dict[str, Any]) -> List[Movie]:
+        self.logger.info("Starting movie filtering", total_movies=len(movies), filters_applied=list(filters.keys()))
         watched_movies = filters.get("watched_movies", [])
         fast_filtered = self._fast_path_filter(movies, watched_movies)
+        self.logger.info(
+            "Fast path filtering completed", filtered_count=len(fast_filtered), removed_count=len(movies) - len(fast_filtered)
+        )
+
         filtered = bulk_fuzzy_filter(fast_filtered, watched_movies)
+        self.logger.info(
+            "Fuzzy filtering completed", filtered_count=len(filtered), removed_count=len(fast_filtered) - len(filtered)
+        )
+
         result = self._apply_other_filters(filtered, filters)
-        return self._deduplicate(result)
+        self.logger.info(
+            "Additional filtering completed", filtered_count=len(result), removed_count=len(filtered) - len(result)
+        )
+
+        final_result = self._deduplicate(result)
+        self.logger.info(
+            "Deduplication completed", filtered_count=len(final_result), removed_count=len(result) - len(final_result)
+        )
+        self.logger.info(
+            "Filtering process completed",
+            final_count=len(final_result),
+            total_removed=len(movies) - len(final_result),
+            filter_effectiveness=round(len(final_result) / len(movies), 3) if movies else 0,
+        )
+        return final_result
 
     def _fast_path_filter(self, movies: List[Movie], watched_movies: List[Movie]) -> List[Movie]:
         watched_title_map = build_watched_title_map(watched_movies)
@@ -74,11 +103,11 @@ class DefaultFilteringService(FilteringService):
         return result
 
     def _deduplicate(self, movies: List[Movie]) -> List[Movie]:
-        seen = set()
+        seen = dict()
         unique = []
         for m in movies:
             key = (normalize_title(m.title), getattr(m, "year", None))
             if key not in seen:
-                seen.add(key)
+                seen[key] = m
                 unique.append(m)
         return unique

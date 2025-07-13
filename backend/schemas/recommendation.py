@@ -14,6 +14,7 @@ class RecommendationItem(BaseModel):
     genres: List[str]
     countries: List[str]
     description: Optional[str]
+    duration: Optional[int]
     similarity: float
     justification: Optional[str]
 

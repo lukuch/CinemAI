@@ -21,6 +21,10 @@ class TMDBService(ABC):
     def fetch_movies(self, filters: Dict[str, Any]) -> List[Movie]:
         pass
 
+    @abstractmethod
+    async def enrich_movies_batch(self, movies_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        pass
+
 
 class FilteringService(ABC):
     @abstractmethod
@@ -62,7 +66,7 @@ class CacheRepository(ABC):
 
 class FieldDetectionService(ABC):
     @abstractmethod
-    def convert_movie_data(self, data: dict) -> dict:
+    async def convert_movies_batch(self, movies_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         pass
 
     @abstractmethod

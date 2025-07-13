@@ -1,9 +1,11 @@
 import asyncio
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 import orjson
 import redis
+from injector import inject
+from structlog.stdlib import BoundLogger
 
 from core.settings import settings
 from domain.entities import Movie
@@ -11,10 +13,12 @@ from domain.interfaces import TMDBService
 
 
 class TMDBApiService(TMDBService):
-    def __init__(self):
+    @inject
+    def __init__(self, logger: BoundLogger):
         self.api_key = settings.tmdb_api_key
         self.redis = redis.from_url(settings.redis_url)
         self.base_url = "https://api.themoviedb.org/3"
+        self.logger = logger
 
     def _get_genre_map(self):
         cache_key = "tmdb:genre_map"
@@ -30,14 +34,151 @@ class TMDBApiService(TMDBService):
         self.redis.set(cache_key, orjson.dumps(genre_map), ex=60 * 60 * 24 * 30)
         return genre_map
 
+    async def enrich_movies_batch(self, movies_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Enrich multiple movies in batch for better performance.
+        """
+        try:
+            self.logger.info("Starting batch enrichment", total_movies=len(movies_data))
+
+            # Filter movies that need enrichment (missing description)
+            movies_to_enrich = []
+            enriched_indices = []
+
+            for i, movie_data in enumerate(movies_data):
+                description = movie_data.get("description")
+                title = movie_data.get("title")
+
+                if (not description or not description.strip()) and title:
+                    movies_to_enrich.append((i, movie_data))
+                else:
+                    enriched_indices.append(i)
+
+            self.logger.info(
+                "Enrichment analysis completed", movies_to_enrich=len(movies_to_enrich), already_enriched=len(enriched_indices)
+            )
+
+            if not movies_to_enrich:
+                return movies_data  # No enrichment needed
+
+            # Batch fetch descriptions from TMDB
+            enriched_results = await self._fetch_descriptions_batch(movies_to_enrich)
+
+            # Apply enrichment results
+            result = movies_data.copy()
+            successful_enrichments = 0
+            for (original_index, movie_data), enriched_data in zip(movies_to_enrich, enriched_results):
+                if enriched_data:
+                    result[original_index] = enriched_data
+                    successful_enrichments += 1
+
+            self.logger.info(
+                "Batch enrichment completed",
+                successful_enrichments=successful_enrichments,
+                enrichment_rate=successful_enrichments / len(movies_to_enrich) if movies_to_enrich else 0,
+            )
+
+            return result
+
+        except Exception as e:
+            self.logger.error("Batch enrichment failed", error=str(e))
+            return movies_data  # Return original data on any error
+
+    async def _fetch_descriptions_batch(self, movies_to_enrich: List[tuple]) -> List[Dict[str, Any]]:
+        """
+        Fetch descriptions for multiple movies in parallel.
+        """
+        try:
+            # Create search tasks for all movies that need enrichment
+            search_tasks = []
+            for _, movie_data in movies_to_enrich:
+                title = movie_data.get("title")
+                year = movie_data.get("year")
+                task = self._fetch_description_from_tmdb(title, year)
+                search_tasks.append(task)
+
+            # Execute all searches in parallel
+            descriptions = await asyncio.gather(*search_tasks, return_exceptions=True)
+
+            # Apply descriptions to movies
+            enriched_movies = []
+            for (_, movie_data), description in zip(movies_to_enrich, descriptions):
+                if isinstance(description, Exception) or not description:
+                    enriched_movies.append(movie_data)  # Keep original if enrichment failed
+                else:
+                    enriched_data = movie_data.copy()
+                    enriched_data["description"] = description
+                    enriched_movies.append(enriched_data)
+
+            return enriched_movies
+
+        except Exception:
+            # Return original movies if batch enrichment fails
+            return [movie_data for _, movie_data in movies_to_enrich]
+
+    async def _fetch_description_from_tmdb(self, title: str, year: Optional[int] = None) -> Optional[str]:
+        """
+        Fetch movie description from TMDB API.
+        """
+        try:
+            # Use TMDB search API
+            search_params = {"api_key": self.api_key, "language": "en-US", "query": title, "include_adult": False}
+
+            if year:
+                search_params["year"] = year
+
+            url = f"{self.base_url}/search/movie"
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, params=search_params)
+                response.raise_for_status()
+
+                results = response.json().get("results", [])
+
+                if not results:
+                    return None
+
+                # Get the best match (first result)
+                best_match = results[0]
+                description = best_match.get("overview")
+
+                if description and description.strip():
+                    return description.strip()
+
+                return None
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:  # Rate limit
+                return None
+            elif e.response.status_code == 404:
+                return None
+            else:
+                return None
+        except Exception:
+            return None
+
     async def fetch_movies(self, filters: Dict[str, Any]) -> List[Movie]:
+        self.logger.info("Fetching movies from TMDB", filters_applied=list(filters.keys()) if filters else "none")
+
         cached = self.redis.get("movies:all")
         if not cached:
+            self.logger.info("Cache miss - fetching and caching top movies")
             await self._fetch_and_cache_top_movies()
             cached = self.redis.get("movies:all")
+        else:
+            self.logger.info("Cache hit - using cached movies")
+
         movies = orjson.loads(cached)
+        self.logger.info("Movies loaded from cache", total_movies=len(movies))
 
         filtered = [Movie(**m) for m in movies if self._matches(m, filters)]
+        self.logger.info(
+            "Movies filtered",
+            original_count=len(movies),
+            filtered_count=len(filtered),
+            filter_effectiveness=len(filtered) / len(movies) if movies else 0,
+        )
+
         return filtered
 
     def _matches(self, movie: Dict[str, Any], filters: Dict[str, Any]) -> bool:

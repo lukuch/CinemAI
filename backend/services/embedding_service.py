@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Tuple
 import openai
 import orjson
 import redis
+from injector import inject
+from structlog.stdlib import BoundLogger
 
 from core.settings import settings
 from domain.entities import Embedding
@@ -12,10 +14,12 @@ from domain.interfaces import EmbeddingService
 
 
 class OpenAIEmbeddingService(EmbeddingService):
-    def __init__(self):
+    @inject
+    def __init__(self, logger: BoundLogger):
         self.client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
         self.redis = redis.from_url(settings.redis_url)
         self.model = "text-embedding-3-large"
+        self.logger = logger
 
     def _cache_key(self, text: str) -> str:
         return f"embedding:{hashlib.sha256(text.encode()).hexdigest()}"
@@ -79,10 +83,34 @@ class OpenAIEmbeddingService(EmbeddingService):
         return results
 
     async def embed(self, texts: List[str]) -> List[Embedding]:
+        self.logger.info("Starting embedding process", total_texts=len(texts))
         unique_texts, text_to_indices = self._deduplicate_texts(texts)
+        self.logger.info(
+            "Deduplication completed", unique_texts=len(unique_texts), duplicates_removed=len(texts) - len(unique_texts)
+        )
+
         unique_results = self._get_cached_embeddings(unique_texts)
+        cached_count = sum(1 for r in unique_results if r is not None)
+        self.logger.info(
+            "Cache lookup completed",
+            cached_count=cached_count,
+            cache_hit_rate=cached_count / len(unique_texts) if unique_texts else 0,
+        )
+
         batches = self._get_uncached_batches(unique_texts, unique_results)
+        self.logger.info(
+            "Batch preparation completed", batches=len(batches), uncached_texts=sum(len(batch[0]) for batch in batches)
+        )
+
         tasks = [self._embed_batch(batch_texts, batch_indices, unique_results) for batch_texts, batch_indices in batches]
         if tasks:
             await asyncio.gather(*tasks)
-        return self._map_results_to_original_order(text_to_indices, unique_texts, unique_results, len(texts))
+            self.logger.info("Embedding generation completed", batches_processed=len(tasks))
+
+        results = self._map_results_to_original_order(text_to_indices, unique_texts, unique_results, len(texts))
+        self.logger.info(
+            "Embedding process completed",
+            total_results=len(results),
+            successful_embeddings=sum(1 for r in results if r is not None),
+        )
+        return results
