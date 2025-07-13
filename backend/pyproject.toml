@@ -32,6 +32,7 @@ langchain-openai = "^0.3.27"
 pycountry = "^24.6.1"
 rapidfuzz = "^3.13.0"
 langsmith = "^0.4.5"
+orjson = "^3.10.18"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

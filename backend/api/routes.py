@@ -1,8 +1,6 @@
-import json
-import os
-import tempfile
 from typing import Dict
 
+import orjson
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from core.recommendation_factory import get_recommendation_manager
@@ -32,7 +30,7 @@ async def upload_watch_history(user_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only JSON files are supported")
     try:
         content = await file.read()
-        data = json.loads(content.decode("utf-8"))
+        data = orjson.loads(content)
         if isinstance(data, list):
             movies = data
         elif isinstance(data, dict) and "movies" in data:
@@ -41,10 +39,8 @@ async def upload_watch_history(user_id: str, file: UploadFile = File(...)):
             raise ValueError("File must be a list of movies or contain a 'movies' array")
         uploaded_files[user_id] = content.decode("utf-8")
         return {"message": f"Watch history uploaded successfully for user {user_id}", "movies_count": len(movies)}
-    except json.JSONDecodeError:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON file")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
 
 
 @router.post("/recommend", response_model=RecommendationResponse)

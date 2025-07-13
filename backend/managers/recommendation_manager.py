@@ -1,5 +1,4 @@
-import json
-
+import orjson
 from structlog.stdlib import BoundLogger
 
 from domain.entities import Movie, UserProfile
@@ -86,7 +85,7 @@ class RecommendationManager:
         Args:
             content: JSON content as string
         """
-        data = json.loads(content)
+        data = orjson.loads(content.encode("utf-8"))
         if isinstance(data, list):
             movies_data = data
         elif isinstance(data, dict) and "movies" in data:

@@ -1,9 +1,8 @@
 import asyncio
-import hashlib
-import json
 from typing import Any, Dict, List
 
 import httpx
+import orjson
 import redis
 
 from core.settings import settings
@@ -21,14 +20,14 @@ class TMDBApiService(TMDBService):
         cache_key = "tmdb:genre_map"
         cached = self.redis.get(cache_key)
         if cached:
-            return json.loads(cached)
+            return orjson.loads(cached)
         url = f"{self.base_url}/genre/movie/list"
         params = {"api_key": self.api_key, "language": "en-US"}
         resp = httpx.get(url, params=params)
         resp.raise_for_status()
         genres = resp.json()["genres"]
         genre_map = {g["id"]: g["name"] for g in genres}
-        self.redis.set(cache_key, json.dumps(genre_map), ex=60 * 60 * 24 * 30)
+        self.redis.set(cache_key, orjson.dumps(genre_map), ex=60 * 60 * 24 * 30)
         return genre_map
 
     async def fetch_movies(self, filters: Dict[str, Any]) -> List[Movie]:
@@ -36,7 +35,7 @@ class TMDBApiService(TMDBService):
         if not cached:
             await self._fetch_and_cache_top_movies()
             cached = self.redis.get("movies:all")
-        movies = json.loads(cached)
+        movies = orjson.loads(cached)
 
         filtered = [Movie(**m) for m in movies if self._matches(m, filters)]
         return filtered
@@ -77,7 +76,7 @@ class TMDBApiService(TMDBService):
                 detail_tasks = [self._fetch_details(client, m, genre_map) for m in batch]
                 movies.extend([m for m in await asyncio.gather(*detail_tasks) if m is not None])
                 await asyncio.sleep(1)
-        self.redis.set("movies:all", json.dumps(movies))
+        self.redis.set("movies:all", orjson.dumps(movies))
         return len(movies)
 
     async def _fetch_page(self, client, page):

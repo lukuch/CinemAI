@@ -84,3 +84,4 @@ poetry.lock
 
 # Alembic
 alembic.ini 
+profile*.svg 
