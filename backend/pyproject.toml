@@ -33,6 +33,9 @@ pycountry = "^24.6.1"
 rapidfuzz = "^3.13.0"
 langsmith = "^0.4.5"
 orjson = "^3.10.18"
+requests = "^2.32.3"
+plotly = "^5.22.0"
+umap-learn = "^0.5.9.post2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

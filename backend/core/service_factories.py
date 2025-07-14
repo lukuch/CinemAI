@@ -15,6 +15,7 @@ from services.llm_service import OpenAILLMService
 from services.recommendation_service import DefaultRecommendationService
 from services.tmdb_service import TMDBApiService
 from services.user_profile_service import UserProfileService
+from services.visualization_service import VisualizationService
 
 
 def get_recommendation_manager(
@@ -68,3 +69,9 @@ def get_user_profile_service(
         vectorstore=PgvectorRepository(session),
         logger=logger,
     )
+
+
+def get_visualization_service(
+    service: VisualizationService = Injected(VisualizationService),
+) -> VisualizationService:
+    return service

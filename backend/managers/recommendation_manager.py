@@ -11,7 +11,11 @@ from domain.interfaces import (
     TMDBService,
     VectorStoreRepository,
 )
-from schemas.recommendation import RecommendationItem, RecommendationRequest, RecommendationResponse
+from schemas.recommendation import (
+    RecommendationItem,
+    RecommendationRequest,
+    RecommendationResponse,
+)
 from services.user_profile_service import UserProfileService
 
 
@@ -45,13 +49,17 @@ class RecommendationManager:
         user_id = request.user_id or "demo"
         filters = request.filters or {}
         self.logger.info(
-            "Starting recommendation process", user_id=user_id, filters_applied=list(filters.keys()) if filters else "none"
+            "Starting recommendation process",
+            user_id=user_id,
+            filters_applied=list(filters.keys()) if filters else "none",
         )
 
         user_profile = await self.user_profile_service.get_profile(user_id)
         if not user_profile:
             self.logger.error("User profile not found", user_id=user_id)
-            raise ValueError("User profile not found. Please upload your watch history first.")
+            raise ValueError(
+                "User profile not found. Please upload your watch history first."
+            )
 
         self.logger.info(
             "User profile loaded",
@@ -59,27 +67,45 @@ class RecommendationManager:
             total_movies=len(user_profile.movies) if user_profile.movies else 0,
             clusters_count=len(user_profile.clusters) if user_profile.clusters else 0,
             avg_rating=(
-                round(sum(m.rating for m in user_profile.movies) / len(user_profile.movies), 3) if user_profile.movies else 0
+                round(
+                    sum(m.rating for m in user_profile.movies)
+                    / len(user_profile.movies),
+                    3,
+                )
+                if user_profile.movies
+                else 0
             ),
         )
 
         candidates = await self._fetch_candidates(request.filters)
         self.logger.info("Candidates fetched", count=len(candidates))
 
-        filtered_candidates = await self._filter_and_embed_candidates(candidates, user_profile)
+        filtered_candidates = await self._filter_and_embed_candidates(
+            candidates, user_profile
+        )
         self.logger.info(
             "Candidates filtered and embedded",
             original_count=len(candidates),
             filtered_count=len(filtered_candidates),
-            reduction_rate=round((len(candidates) - len(filtered_candidates)) / len(candidates), 3) if candidates else 0,
+            reduction_rate=(
+                round((len(candidates) - len(filtered_candidates)) / len(candidates), 3)
+                if candidates
+                else 0
+            ),
         )
 
-        recommendations = await self._generate_recommendations(user_profile, filtered_candidates)
+        recommendations = await self._generate_recommendations(
+            user_profile, filtered_candidates
+        )
         self.logger.info(
             "Recommendations generated",
             count=len(recommendations),
             avg_similarity=(
-                round(sum(r.similarity for r in recommendations) / len(recommendations), 3) if recommendations else 0
+                round(
+                    sum(r.similarity for r in recommendations) / len(recommendations), 3
+                )
+                if recommendations
+                else 0
             ),
         )
 
@@ -100,7 +126,9 @@ class RecommendationManager:
         self.logger.info("Fetched movie candidates from TMDB", count=len(movies))
         return movies
 
-    async def _filter_and_embed_candidates(self, candidates: list, user_profile: UserProfile) -> list:
+    async def _filter_and_embed_candidates(
+        self, candidates: list, user_profile: UserProfile
+    ) -> list:
         """Filter candidates and add embeddings."""
         self.logger.info("Filtering candidates", candidate_count=len(candidates))
         watched_movies = [
@@ -123,43 +151,40 @@ class RecommendationManager:
         self.logger.info("Added embeddings to filtered candidates", count=len(filtered))
         return filtered
 
-    def _create_movie_texts(self, movies: list) -> list[str]:
-        """Create structured text representations of movies for embedding."""
-        texts = []
-        for m in movies:
-            text = f"Title: {m.title}\n"
-            text += f"Year: {m.year}\n" if getattr(m, "year", None) else ""
-            text += f"Genres: {', '.join(m.genres)}\n" if getattr(m, "genres", None) else ""
-            text += f"Countries: {', '.join(m.countries)}\n" if getattr(m, "countries", None) else ""
-            text += f"Duration: {m.duration} minutes\n" if getattr(m, "duration", None) else ""
-            text += f"Description: {m.description or ''}"
-            texts.append(text)
-        return texts
-
     async def _add_embeddings_to_movies(self, movies: list):
         """Add embeddings to movie objects."""
         self.logger.info("Embedding movies", count=len(movies))
-        texts = self._create_movie_texts(movies)
+        texts = self.embedder.create_movie_texts(movies)
         embeddings = await self.embedder.embed(texts)
         for movie, embedding in zip(movies, embeddings):
             movie.embedding = embedding
         self.logger.info("Embeddings added to movies", count=len(movies))
 
-    async def _generate_recommendations(self, user_profile: UserProfile, candidates: list) -> list[RecommendationItem]:
+    async def _generate_recommendations(
+        self, user_profile: UserProfile, candidates: list
+    ) -> list[RecommendationItem]:
         """Generate final recommendations with similarity scores and justifications."""
         self.logger.info("Generating recommendations", candidate_count=len(candidates))
         top_candidates_with_sim = self.recommender.recommend(user_profile, candidates)
         self.logger.info("Top candidates selected", count=len(top_candidates_with_sim))
-        reranked = self.llm.rerank(user_profile, [m for _, m in top_candidates_with_sim])
+        reranked = self.llm.rerank(
+            user_profile, [m for _, m in top_candidates_with_sim]
+        )
         self.logger.info("Candidates reranked with LLM", reranked_count=len(reranked))
         recommendations = []
         for i, (sim, movie) in enumerate(top_candidates_with_sim):
-            justification = reranked[i]["justification"] if reranked and i < len(reranked) else None
-            recommendations.append(self._create_recommendation_item(movie, sim, justification))
+            justification = (
+                reranked[i]["justification"] if reranked and i < len(reranked) else None
+            )
+            recommendations.append(
+                self._create_recommendation_item(movie, sim, justification)
+            )
         self.logger.info("Final recommendations created", count=len(recommendations))
         return recommendations
 
-    def _create_recommendation_item(self, movie, similarity: float, justification: str) -> RecommendationItem:
+    def _create_recommendation_item(
+        self, movie, similarity: float, justification: str
+    ) -> RecommendationItem:
         """Create a recommendation item from movie data."""
         return RecommendationItem(
             title=movie.title,

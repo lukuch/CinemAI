@@ -1,22 +1,30 @@
 import orjson
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import JSONResponse
 
-from core.service_factories import get_recommendation_manager, get_user_profile_service
+from core.service_factories import (
+    get_recommendation_manager,
+    get_user_profile_service,
+    get_visualization_service,
+)
 from managers.recommendation_manager import RecommendationManager
 from schemas.filters import FiltersResponse
 from schemas.recommendation import RecommendationRequest, RecommendationResponse
 from services.user_profile_service import UserProfileService
+from services.visualization_service import VisualizationService
 
 router = APIRouter()
 
 
 @router.get("/profiles/{user_id}")
-async def get_profile(user_id: str, profile_service: UserProfileService = Depends(get_user_profile_service)):
+async def get_profile(
+    user_id: str,
+    profile_service: UserProfileService = Depends(get_user_profile_service),
+):
     profile = await profile_service.get_profile(user_id)
     if not profile:
         return {"error": "Profile not found"}
 
-    # Return a simplified profile structure
     return {
         "user_id": profile.user_id,
         "movies_count": len(profile.movies) if profile.movies else 0,
@@ -26,7 +34,9 @@ async def get_profile(user_id: str, profile_service: UserProfileService = Depend
 
 @router.post("/upload-watch-history")
 async def upload_watch_history(
-    user_id: str, file: UploadFile = File(...), profile_service: UserProfileService = Depends(get_user_profile_service)
+    user_id: str,
+    file: UploadFile = File(...),
+    profile_service: UserProfileService = Depends(get_user_profile_service),
 ):
     if not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="Only JSON files are supported")
@@ -38,11 +48,16 @@ async def upload_watch_history(
         elif isinstance(data, dict) and "movies" in data:
             movies = data["movies"]
         else:
-            raise ValueError("File must be a list of movies or contain a 'movies' array")
+            raise ValueError(
+                "File must be a list of movies or contain a 'movies' array"
+            )
 
         await profile_service.create_and_save_profile(user_id, movies)
 
-        return {"message": f"Watch history uploaded successfully for user {user_id}", "movies_count": len(movies)}
+        return {
+            "message": f"Watch history uploaded successfully for user {user_id}",
+            "movies_count": len(movies),
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON file: {str(e)}")
 
@@ -67,4 +82,23 @@ def get_filters():
         years=list(range(1970, 2024)),
         durations=[90, 120, 150, 180],
         countries=["USA", "UK", "FR", "JP"],
+    )
+
+
+@router.get("/profiles/{user_id}/visualization")
+async def get_profile_visualization(
+    user_id: str,
+    profile_service: UserProfileService = Depends(get_user_profile_service),
+    visualization_service: VisualizationService = Depends(get_visualization_service),
+    method: str = Query(
+        "tsne", description="Dimensionality reduction method: tsne, umap, or pca"
+    ),
+):
+    profile = await profile_service.get_profile(user_id)
+    if not profile or not profile.clusters or not profile.movies:
+        return JSONResponse(
+            status_code=404, content={"error": "Profile or clusters not found"}
+        )
+    return await visualization_service.get_user_profile_visualization(
+        profile, method=method
     )
