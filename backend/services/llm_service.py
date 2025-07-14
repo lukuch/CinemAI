@@ -36,6 +36,9 @@ class OpenAILLMService(LLMService):
 
     def rerank(self, user_profile: UserProfile, candidates: List[Movie]) -> List[Dict[str, Any]]:
         self.logger.info("Starting LLM reranking", candidates_count=len(candidates), clusters_count=len(user_profile.clusters))
+        if not user_profile.clusters:
+            self.logger.info("Empty user profile: returning empty rerank result")
+            return []
         taste_summary = self._build_taste_summary(user_profile)
         candidate_list = "\n".join([f"{i+1}. {m.title} ({m.year}) - {', '.join(m.genres)}" for i, m in enumerate(candidates)])
         prompt = PromptTemplate(

@@ -37,11 +37,30 @@ orjson = "^3.10.18"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
 pytest-asyncio = "^0.23.6"
+pytest-cov = "^5.0.0"
 httpx = {extras = ["cli"], version = "^0.27.0"}
 flake8 = "^7.3.0"
 black = "^25.1.0"
 pre-commit = "^4.2.0"
 isort = "^6.0.1"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+    "--color=yes",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -15,7 +15,13 @@ async def get_profile(user_id: str, profile_service: UserProfileService = Depend
     profile = await profile_service.get_profile(user_id)
     if not profile:
         return {"error": "Profile not found"}
-    return profile
+
+    # Return a simplified profile structure
+    return {
+        "user_id": profile.user_id,
+        "movies_count": len(profile.movies) if profile.movies else 0,
+        "clusters_count": len(profile.clusters) if profile.clusters else 0,
+    }
 
 
 @router.post("/upload-watch-history")
@@ -46,7 +52,12 @@ async def recommend(
     request: RecommendationRequest,
     manager: RecommendationManager = Depends(get_recommendation_manager),
 ):
-    return await manager.recommend(request)
+    try:
+        return await manager.recommend(request)
+    except ValueError as e:
+        if "User profile not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise
 
 
 @router.get("/filters", response_model=FiltersResponse)

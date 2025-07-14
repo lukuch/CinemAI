@@ -92,6 +92,12 @@ class UserProfileService:
         self.logger.info("Building user profile from history", user_id=user_id, total_movies=len(watch_history))
 
         high_rated_movies = [m for m in watch_history if m.rating > 4]
+        if not high_rated_movies:
+            # If no high-rated movies, use all movies
+            movies_for_profile = watch_history
+        else:
+            movies_for_profile = high_rated_movies
+
         self.logger.info(
             "High-rated movies filtered",
             high_rated_count=len(high_rated_movies),
@@ -99,14 +105,14 @@ class UserProfileService:
             avg_rating=sum(m.rating for m in watch_history) / len(watch_history) if watch_history else 0,
         )
 
-        texts = [f"{m.title} {m.description or ''} {' '.join(m.genres)} {' '.join(m.countries)}" for m in high_rated_movies]
+        texts = [f"{m.title} {m.description or ''} {' '.join(m.genres)} {' '.join(m.countries)}" for m in movies_for_profile]
         self.logger.info("Text preparation completed", texts_count=len(texts))
 
         embeddings = await self.embedder.embed(texts)
         self.logger.info("Embeddings generated", embeddings_count=len(embeddings))
 
-        ratings = [m.rating for m in high_rated_movies]
-        dates = [m.watched_at or "2023-01-01" for m in high_rated_movies]
+        ratings = [m.rating for m in movies_for_profile]
+        dates = [m.watched_at or "2023-01-01" for m in movies_for_profile]
         movies = [
             Movie(
                 id=getattr(m, "id", None),
@@ -118,7 +124,7 @@ class UserProfileService:
                 description=m.description,
                 embedding=embeddings[i] if i < len(embeddings) else None,
             )
-            for i, m in enumerate(high_rated_movies)
+            for i, m in enumerate(movies_for_profile)
         ]
 
         clusters = self.clusterer.cluster(embeddings, ratings, dates, movies)
@@ -130,4 +136,4 @@ class UserProfileService:
             high_rated_movies=len(high_rated_movies),
         )
 
-        return UserProfile(user_id=user_id, clusters=clusters, movies=watch_history)
+        return UserProfile(user_id=user_id, clusters=clusters, movies=movies_for_profile)
