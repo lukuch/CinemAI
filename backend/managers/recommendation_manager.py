@@ -124,8 +124,17 @@ class RecommendationManager:
         return filtered
 
     def _create_movie_texts(self, movies: list) -> list[str]:
-        """Create text representations of movies for embedding."""
-        return [f"{m.title} {m.description or ''} {' '.join(m.genres)} {' '.join(m.countries)}" for m in movies]
+        """Create structured text representations of movies for embedding."""
+        texts = []
+        for m in movies:
+            text = f"Title: {m.title}\n"
+            text += f"Year: {m.year}\n" if getattr(m, "year", None) else ""
+            text += f"Genres: {', '.join(m.genres)}\n" if getattr(m, "genres", None) else ""
+            text += f"Countries: {', '.join(m.countries)}\n" if getattr(m, "countries", None) else ""
+            text += f"Duration: {m.duration} minutes\n" if getattr(m, "duration", None) else ""
+            text += f"Description: {m.description or ''}"
+            texts.append(text)
+        return texts
 
     async def _add_embeddings_to_movies(self, movies: list):
         """Add embeddings to movie objects."""

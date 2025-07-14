@@ -196,6 +196,15 @@ class TMDBApiService(TMDBService):
                 return False
         return True
 
+    def _deduplicate_movies_by_id(self, movies: list) -> list:
+        """Deduplicate a list of movie dicts by their 'id' field."""
+        unique_movies_dict = {}
+        for movie in movies:
+            movie_id = movie.get("id")
+            if movie_id and movie_id not in unique_movies_dict:
+                unique_movies_dict[movie_id] = movie
+        return list(unique_movies_dict.values())
+
     async def _fetch_and_cache_top_movies(self, total_movies: int = 10000, batch_size: int = 50) -> int:
         movies_per_page = 20
         total_pages = (total_movies + movies_per_page - 1) // movies_per_page
@@ -217,8 +226,20 @@ class TMDBApiService(TMDBService):
                 detail_tasks = [self._fetch_details(client, m, genre_map) for m in batch]
                 movies.extend([m for m in await asyncio.gather(*detail_tasks) if m is not None])
                 await asyncio.sleep(1)
-        self.redis.set("movies:all", orjson.dumps(movies))
-        return len(movies)
+        # Deduplicate by movie id
+        unique_movies = self._deduplicate_movies_by_id(movies)
+        duplicates_removed = len(movies) - len(unique_movies)
+        # Ensure exactly 10,000 unique movies
+        if len(unique_movies) > total_movies:
+            unique_movies = unique_movies[:total_movies]
+        self.logger.info(
+            "Deduplication completed while fetching movies from TMDB and before caching",
+            original_count=len(movies),
+            unique_count=len(unique_movies),
+            duplicates_removed=duplicates_removed,
+        )
+        self.redis.set("movies:all", orjson.dumps(unique_movies))
+        return len(unique_movies)
 
     async def _fetch_page(self, client, page):
         params = {"api_key": self.api_key, "language": "en-US", "sort_by": "popularity.desc", "page": page}
