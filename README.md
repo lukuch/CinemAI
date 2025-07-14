@@ -72,8 +72,9 @@ Core algorithm that matches user preferences with candidates:
 
 - **Cluster-Based Matching**: Uses user's preference clusters to find similar movie groups
 - **Cosine Similarity**: Computes similarity scores between user cluster centroids and candidate movies
-- **Multi-Cluster Analysis**: Compares each candidate against all user clusters and selects the maximum similarity
-- **Top Candidate Selection**: Orders candidates by similarity scores and selects top 10 recommendations
+- **Softmax Aggregation (New)**: Instead of using only the maximum similarity, the system now aggregates similarities across all clusters using a softmax-weighted sum. This provides a more nuanced score that considers all facets of user taste.
+    - **Alpha (α) Parameter**: Controls the sharpness of the softmax weighting. Higher alpha makes the score focus more on the best-matching cluster (like max), while lower alpha spreads weight across all clusters (like mean). The default is α = 5.0, so it's something in between.
+- **Top Candidate Selection**: Orders candidates by softmax-aggregated similarity scores and selects top 10 recommendations
 
 ### 6. AI-Powered Enhancement
 Final refinement using advanced AI capabilities:
