@@ -1,21 +1,18 @@
-from unittest.mock import MagicMock, patch
-
-import numpy as np
 import pytest
 
 from domain.entities import Cluster, Embedding, Movie, UserProfile
 from services.clustering_service import SklearnClusteringService
-from services.filtering_service import DefaultFilteringService
+from services.filtering_service import FilteringService
 from services.llm_service import OpenAILLMService
-from services.recommendation_service import DefaultRecommendationService
+from services.recommendation_service import RecommendationService
 
 
 class TestRecommendationService:
-    """Test suite for DefaultRecommendationService."""
+    """Test suite for RecommendationService."""
 
     @pytest.fixture
     def recommendation_service(self, mock_logger):
-        return DefaultRecommendationService(logger=mock_logger)
+        return RecommendationService(logger=mock_logger)
 
     @pytest.fixture
     def sample_user_profile(self):
@@ -65,9 +62,13 @@ class TestRecommendationService:
             ),
         ]
 
-    def test_recommend_success(self, recommendation_service, sample_user_profile, sample_candidates):
+    def test_recommend_success(
+        self, recommendation_service, sample_user_profile, sample_candidates
+    ):
         # Act
-        result = recommendation_service.recommend(sample_user_profile, sample_candidates)
+        result = recommendation_service.recommend(
+            sample_user_profile, sample_candidates
+        )
 
         # Assert
         assert len(result) == 2
@@ -77,25 +78,33 @@ class TestRecommendationService:
         assert all(isinstance(item[1], Movie) for item in result)
         assert all(0 <= item[0] <= 1 for item in result)
 
-    def test_recommend_with_movies_without_embeddings(self, recommendation_service, sample_user_profile, sample_candidates):
+    def test_recommend_with_movies_without_embeddings(
+        self, recommendation_service, sample_user_profile, sample_candidates
+    ):
         # Arrange
         sample_candidates[0].embedding = None
 
         # Act
-        result = recommendation_service.recommend(sample_user_profile, sample_candidates)
+        result = recommendation_service.recommend(
+            sample_user_profile, sample_candidates
+        )
 
         # Assert
         assert len(result) == 1
         assert result[0][1].title == "The Dark Knight"
 
-    def test_recommend_with_empty_candidates(self, recommendation_service, sample_user_profile):
+    def test_recommend_with_empty_candidates(
+        self, recommendation_service, sample_user_profile
+    ):
         # Act
         result = recommendation_service.recommend(sample_user_profile, [])
 
         # Assert
         assert len(result) == 0
 
-    def test_recommend_with_empty_user_profile(self, recommendation_service, sample_candidates):
+    def test_recommend_with_empty_user_profile(
+        self, recommendation_service, sample_candidates
+    ):
         # Arrange
         empty_profile = UserProfile(user_id="test_user", movies=[], clusters=[])
 
@@ -103,9 +112,13 @@ class TestRecommendationService:
         with pytest.raises(ValueError):
             recommendation_service.recommend(empty_profile, sample_candidates)
 
-    def test_recommend_similarity_calculation(self, recommendation_service, sample_user_profile, sample_candidates):
+    def test_recommend_similarity_calculation(
+        self, recommendation_service, sample_user_profile, sample_candidates
+    ):
         # Act
-        result = recommendation_service.recommend(sample_user_profile, sample_candidates)
+        result = recommendation_service.recommend(
+            sample_user_profile, sample_candidates
+        )
 
         # Assert
         assert result[0][0] > 0
@@ -194,15 +207,31 @@ class TestClusteringService:
             ),
         ]
 
-    def test_cluster_small_dataset(self, clustering_service, sample_embeddings, sample_ratings, sample_dates, sample_movies):
+    def test_cluster_small_dataset(
+        self,
+        clustering_service,
+        sample_embeddings,
+        sample_ratings,
+        sample_dates,
+        sample_movies,
+    ):
         # Act
-        result = clustering_service.cluster(sample_embeddings, sample_ratings, sample_dates, sample_movies)
+        result = clustering_service.cluster(
+            sample_embeddings, sample_ratings, sample_dates, sample_movies
+        )
 
         # Assert
         assert len(result) > 0
         assert all(isinstance(cluster, Cluster) for cluster in result)
 
-    def test_cluster_medium_dataset(self, clustering_service, sample_embeddings, sample_ratings, sample_dates, sample_movies):
+    def test_cluster_medium_dataset(
+        self,
+        clustering_service,
+        sample_embeddings,
+        sample_ratings,
+        sample_dates,
+        sample_movies,
+    ):
         # Arrange
         medium_embeddings = sample_embeddings * 20
         medium_ratings = sample_ratings * 20
@@ -210,13 +239,22 @@ class TestClusteringService:
         medium_movies = sample_movies * 20
 
         # Act
-        result = clustering_service.cluster(medium_embeddings, medium_ratings, medium_dates, medium_movies)
+        result = clustering_service.cluster(
+            medium_embeddings, medium_ratings, medium_dates, medium_movies
+        )
 
         # Assert
         assert len(result) > 0
         assert all(isinstance(cluster, Cluster) for cluster in result)
 
-    def test_cluster_large_dataset(self, clustering_service, sample_embeddings, sample_ratings, sample_dates, sample_movies):
+    def test_cluster_large_dataset(
+        self,
+        clustering_service,
+        sample_embeddings,
+        sample_ratings,
+        sample_dates,
+        sample_movies,
+    ):
         # Arrange
         large_embeddings = sample_embeddings * 120
         large_ratings = sample_ratings * 120
@@ -224,7 +262,9 @@ class TestClusteringService:
         large_movies = sample_movies * 120
 
         # Act
-        result = clustering_service.cluster(large_embeddings, large_ratings, large_dates, large_movies)
+        result = clustering_service.cluster(
+            large_embeddings, large_ratings, large_dates, large_movies
+        )
 
         # Assert
         assert len(result) > 0
@@ -236,7 +276,12 @@ class TestClusteringService:
             clustering_service.cluster([], [], [], [])
 
     def test_cluster_with_single_movie(
-        self, clustering_service, sample_embeddings, sample_ratings, sample_dates, sample_movies
+        self,
+        clustering_service,
+        sample_embeddings,
+        sample_ratings,
+        sample_dates,
+        sample_movies,
     ):
         # Arrange
         single_embedding = [sample_embeddings[0]]
@@ -245,7 +290,9 @@ class TestClusteringService:
         single_movie = [sample_movies[0]]
 
         # Act
-        result = clustering_service.cluster(single_embedding, single_rating, single_date, single_movie)
+        result = clustering_service.cluster(
+            single_embedding, single_rating, single_date, single_movie
+        )
 
         # Assert
         assert len(result) == 1
@@ -253,11 +300,11 @@ class TestClusteringService:
 
 
 class TestFilteringService:
-    """Test suite for DefaultFilteringService."""
+    """Test suite for FilteringService."""
 
     @pytest.fixture
     def filtering_service(self, mock_logger):
-        return DefaultFilteringService(logger=mock_logger)
+        return FilteringService(logger=mock_logger)
 
     @pytest.fixture
     def sample_movies(self):
@@ -311,7 +358,9 @@ class TestFilteringService:
             ),
         ]
 
-    def test_filter_with_watched_movies(self, filtering_service, sample_movies, watched_movies):
+    def test_filter_with_watched_movies(
+        self, filtering_service, sample_movies, watched_movies
+    ):
         # Arrange
         filters = {"watched_movies": watched_movies}
 

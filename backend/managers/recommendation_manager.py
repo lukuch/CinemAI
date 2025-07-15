@@ -2,35 +2,35 @@ from structlog.stdlib import BoundLogger
 
 from domain.entities import Movie, UserProfile
 from domain.interfaces import (
-    ClusteringService,
-    EmbeddingService,
-    FieldDetectionService,
-    FilteringService,
-    LLMService,
-    RecommendationService,
-    TMDBService,
-    VectorStoreRepository,
+    IClusteringService,
+    IEmbeddingService,
+    IFieldDetectionService,
+    IFilteringService,
+    ILLMService,
+    IMovieApiService,
+    IRecommendationService,
+    IUserProfileService,
+    IVectorStoreRepository,
 )
 from schemas.recommendation import (
     RecommendationItem,
     RecommendationRequest,
     RecommendationResponse,
 )
-from services.user_profile_service import UserProfileService
 
 
 class RecommendationManager:
     def __init__(
         self,
-        embedder: EmbeddingService,
-        clusterer: ClusteringService,
-        tmdb: TMDBService,
-        filterer: FilteringService,
-        recommender: RecommendationService,
-        field_detector: FieldDetectionService,
-        llm: LLMService,
-        vectorstore: VectorStoreRepository,
-        user_profile_service: UserProfileService,
+        embedder: IEmbeddingService,
+        clusterer: IClusteringService,
+        tmdb: IMovieApiService,
+        filterer: IFilteringService,
+        recommender: IRecommendationService,
+        field_detector: IFieldDetectionService,
+        llm: ILLMService,
+        vectorstore: IVectorStoreRepository,
+        user_profile_service: IUserProfileService,
         logger: BoundLogger,
     ):
         self.embedder = embedder

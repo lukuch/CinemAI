@@ -5,14 +5,14 @@ import pycountry
 from injector import inject
 from structlog.stdlib import BoundLogger
 
-from domain.interfaces import FieldDetectionService, TMDBService
+from domain.interfaces import IFieldDetectionService, IMovieApiService
 
 
-class DefaultFieldDetectionService(FieldDetectionService):
+class FieldDetectionService(IFieldDetectionService):
     """Service for detecting and validating movie data fields from various formats."""
 
     @inject
-    def __init__(self, tmdb: TMDBService, logger: BoundLogger):
+    def __init__(self, tmdb: IMovieApiService, logger: BoundLogger):
         self.field_configs = self._get_field_configs()
         self.tmdb = tmdb
         self.logger = logger
@@ -25,7 +25,9 @@ class DefaultFieldDetectionService(FieldDetectionService):
         Returns a tuple: (valid_movies, excluded_movies)
         """
         try:
-            self.logger.info("Starting batch movie conversion", total_movies=len(movies_data))
+            self.logger.info(
+                "Starting batch movie conversion", total_movies=len(movies_data)
+            )
 
             # First, convert all movies to standard format
             converted_movies = []
@@ -41,7 +43,11 @@ class DefaultFieldDetectionService(FieldDetectionService):
                 "Initial field detection completed",
                 converted_movies=len(converted_movies),
                 avg_fields_per_movie=(
-                    round(sum(len(m) for m in converted_movies) / len(converted_movies), 3) if converted_movies else 0
+                    round(
+                        sum(len(m) for m in converted_movies) / len(converted_movies), 3
+                    )
+                    if converted_movies
+                    else 0
                 ),
             )
 
@@ -55,25 +61,41 @@ class DefaultFieldDetectionService(FieldDetectionService):
                 is_valid = True
                 missing_fields = []
                 for field_name, config in self.field_configs.items():
-                    if config.get("required", False) and field_name not in enriched_data:
+                    if (
+                        config.get("required", False)
+                        and field_name not in enriched_data
+                    ):
                         is_valid = False
                         missing_fields.append(field_name)
                 if is_valid:
                     valid_movies.append(enriched_data)
                 else:
-                    excluded_movies.append({"original": original, "enriched": enriched_data, "missing_fields": missing_fields})
+                    excluded_movies.append(
+                        {
+                            "original": original,
+                            "enriched": enriched_data,
+                            "missing_fields": missing_fields,
+                        }
+                    )
 
             self.logger.info(
                 "Batch conversion completed",
                 valid_movies=len(valid_movies),
                 excluded_movies=len(excluded_movies),
-                success_rate=round(len(valid_movies) / len(movies_data), 3) if movies_data else 0,
+                success_rate=(
+                    round(len(valid_movies) / len(movies_data), 3) if movies_data else 0
+                ),
             )
 
             return valid_movies, excluded_movies
         except Exception as e:
-            self.logger.error("Batch conversion failed", error=str(e), total_movies=len(movies_data))
-            return [], [{"original": d, "enriched": {}, "missing_fields": ["exception"]} for d in movies_data]
+            self.logger.error(
+                "Batch conversion failed", error=str(e), total_movies=len(movies_data)
+            )
+            return [], [
+                {"original": d, "enriched": {}, "missing_fields": ["exception"]}
+                for d in movies_data
+            ]
 
     def validate_movie_data(self, data: Dict[str, Any]) -> bool:
         """Validate that movie data has required fields and correct types."""
@@ -87,16 +109,30 @@ class DefaultFieldDetectionService(FieldDetectionService):
                 expected_type = config["type"]
 
                 if expected_type == "str" and not isinstance(value, str):
-                    self.logger.warning("Field must be a string", field=field_name, value_type=type(value))
+                    self.logger.warning(
+                        "Field must be a string",
+                        field=field_name,
+                        value_type=type(value),
+                    )
                     return False
                 elif expected_type == "float" and not isinstance(value, (int, float)):
-                    self.logger.warning("Field must be a number", field=field_name, value_type=type(value))
+                    self.logger.warning(
+                        "Field must be a number",
+                        field=field_name,
+                        value_type=type(value),
+                    )
                     return False
                 elif expected_type == "int" and not isinstance(value, int):
-                    self.logger.warning("Field must be an integer", field=field_name, value_type=type(value))
+                    self.logger.warning(
+                        "Field must be an integer",
+                        field=field_name,
+                        value_type=type(value),
+                    )
                     return False
                 elif expected_type == "list" and not isinstance(value, list):
-                    self.logger.warning("Field must be a list", field=field_name, value_type=type(value))
+                    self.logger.warning(
+                        "Field must be a list", field=field_name, value_type=type(value)
+                    )
                     return False
 
         return True
@@ -117,7 +153,10 @@ class DefaultFieldDetectionService(FieldDetectionService):
                 return match.alpha_2
             # Try common names and official names
             for c in pycountry.countries:
-                if country.lower() in [c.name.lower(), getattr(c, "official_name", "").lower()]:
+                if country.lower() in [
+                    c.name.lower(),
+                    getattr(c, "official_name", "").lower(),
+                ]:
                     return c.alpha_2
             # Try partial match (e.g., 'UK' for 'United Kingdom')
             for c in pycountry.countries:
@@ -127,7 +166,9 @@ class DefaultFieldDetectionService(FieldDetectionService):
             pass
         return country
 
-    def _detect_field(self, data: Dict[str, Any], field_config: Dict[str, Any], field_name: str = None) -> Optional[Any]:
+    def _detect_field(
+        self, data: Dict[str, Any], field_config: Dict[str, Any], field_name: str = None
+    ) -> Optional[Any]:
         """
         Generic field detection method.
         """
@@ -164,7 +205,9 @@ class DefaultFieldDetectionService(FieldDetectionService):
                 return None
         return None
 
-    def _detect_int_field(self, value: Any, field_config: Dict[str, Any]) -> Optional[int]:
+    def _detect_int_field(
+        self, value: Any, field_config: Dict[str, Any]
+    ) -> Optional[int]:
         if isinstance(value, int):
             return value
         elif isinstance(value, str):
@@ -209,35 +252,80 @@ class DefaultFieldDetectionService(FieldDetectionService):
                 "required": True,
             },
             "rating": {
-                "patterns": ["rating", "rating_score", "vote_average", "averageRating", "user_rating", "score", "rate"],
+                "patterns": [
+                    "rating",
+                    "rating_score",
+                    "vote_average",
+                    "averageRating",
+                    "user_rating",
+                    "score",
+                    "rate",
+                ],
                 "type": "float",
                 "required": True,
             },
             "year": {
-                "patterns": ["year", "release_year", "startYear", "production_year", "release_date", "releaseYear"],
+                "patterns": [
+                    "year",
+                    "release_year",
+                    "startYear",
+                    "production_year",
+                    "release_date",
+                    "releaseYear",
+                ],
                 "type": "int",
                 "required": True,
                 "is_year": True,
             },
             "duration": {
-                "patterns": ["duration", "runtime", "runtimeMinutes", "film_length", "length"],
+                "patterns": [
+                    "duration",
+                    "runtime",
+                    "runtimeMinutes",
+                    "film_length",
+                    "length",
+                ],
                 "type": "int",
                 "required": True,
             },
-            "genres": {"patterns": ["genres", "genre_list", "category_tags", "genre"], "type": "list", "required": True},
+            "genres": {
+                "patterns": ["genres", "genre_list", "category_tags", "genre"],
+                "type": "list",
+                "required": True,
+            },
             "countries": {
-                "patterns": ["countries", "country_list", "production_countries", "origin_countries", "country"],
+                "patterns": [
+                    "countries",
+                    "country_list",
+                    "production_countries",
+                    "origin_countries",
+                    "country",
+                ],
                 "type": "list",
                 "required": True,
                 "default": [],
             },
             "description": {
-                "patterns": ["description", "plot_summary", "overview", "synopsis", "plot", "summary"],
+                "patterns": [
+                    "description",
+                    "plot_summary",
+                    "overview",
+                    "synopsis",
+                    "plot",
+                    "summary",
+                ],
                 "type": "str",
                 "required": True,
             },
             "watched_at": {
-                "patterns": ["watched_at", "viewed_date", "watch_timestamp", "date", "watch_date", "viewDate"],
+                "patterns": [
+                    "watched_at",
+                    "viewed_date",
+                    "watch_timestamp",
+                    "date",
+                    "watch_date",
+                    "viewDate",
+                ],
                 "type": "str",
                 "required": False,
             },

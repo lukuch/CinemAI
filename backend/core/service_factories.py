@@ -4,32 +4,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from db.deps import get_async_session
-from domain.interfaces import FieldDetectionService
+from domain.interfaces import (
+    IClusteringService,
+    IEmbeddingService,
+    IFieldDetectionService,
+    IFilteringService,
+    ILLMService,
+    IMovieApiService,
+    IRecommendationService,
+    IUserProfileService,
+    IVisualizationService,
+)
 from managers.recommendation_manager import RecommendationManager
 from repositories.vector_store import PgvectorRepository
-from services.clustering_service import SklearnClusteringService
-from services.embedding_service import OpenAIEmbeddingService
-from services.field_detection_service import DefaultFieldDetectionService
-from services.filtering_service import DefaultFilteringService
-from services.llm_service import OpenAILLMService
-from services.recommendation_service import DefaultRecommendationService
-from services.tmdb_service import TMDBApiService
 from services.user_profile_service import UserProfileService
 from services.visualization_service import VisualizationService
 
 
 def get_recommendation_manager(
     session: AsyncSession = Depends(get_async_session),
-    embedder: OpenAIEmbeddingService = Injected(OpenAIEmbeddingService),
-    clusterer: SklearnClusteringService = Injected(SklearnClusteringService),
-    tmdb: TMDBApiService = Injected(TMDBApiService),
-    filterer: DefaultFilteringService = Injected(DefaultFilteringService),
-    recommender: DefaultRecommendationService = Injected(DefaultRecommendationService),
-    field_detector: FieldDetectionService = Injected(DefaultFieldDetectionService),
-    llm: OpenAILLMService = Injected(OpenAILLMService),
+    embedder: IEmbeddingService = Injected(IEmbeddingService),
+    clusterer: IClusteringService = Injected(IClusteringService),
+    tmdb: IMovieApiService = Injected(IMovieApiService),
+    filterer: IFilteringService = Injected(IFilteringService),
+    recommender: IRecommendationService = Injected(IRecommendationService),
+    field_detector: IFieldDetectionService = Injected(IFieldDetectionService),
+    llm: ILLMService = Injected(ILLMService),
     logger: BoundLogger = Injected(BoundLogger),
 ) -> RecommendationManager:
-    # Use the existing factory function to create UserProfileService
     user_profile_service = get_user_profile_service(
         session=session,
         embedder=embedder,
@@ -55,12 +57,12 @@ def get_recommendation_manager(
 
 def get_user_profile_service(
     session: AsyncSession = Depends(get_async_session),
-    embedder: OpenAIEmbeddingService = Injected(OpenAIEmbeddingService),
-    clusterer: SklearnClusteringService = Injected(SklearnClusteringService),
-    tmdb: TMDBApiService = Injected(TMDBApiService),
-    field_detector: FieldDetectionService = Injected(DefaultFieldDetectionService),
+    embedder: IEmbeddingService = Injected(IEmbeddingService),
+    clusterer: IClusteringService = Injected(IClusteringService),
+    tmdb: IMovieApiService = Injected(IMovieApiService),
+    field_detector: IFieldDetectionService = Injected(IFieldDetectionService),
     logger: BoundLogger = Injected(BoundLogger),
-) -> UserProfileService:
+) -> IUserProfileService:
     return UserProfileService(
         embedder=embedder,
         clusterer=clusterer,
@@ -72,6 +74,6 @@ def get_user_profile_service(
 
 
 def get_visualization_service(
-    service: VisualizationService = Injected(VisualizationService),
-) -> VisualizationService:
+    service: IVisualizationService = Injected(VisualizationService),
+) -> IVisualizationService:
     return service

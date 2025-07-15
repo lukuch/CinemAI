@@ -14,7 +14,9 @@ from services.user_profile_service import UserProfileService
 @pytest.fixture(autouse=True)
 def override_user_profile_service(monkeypatch):
     mock_profile_service = AsyncMock()
-    mock_profile_service.get_profile.return_value = MagicMock(user_id="test_user", movies=[], clusters=[])
+    mock_profile_service.get_profile.return_value = MagicMock(
+        user_id="test_user", movies=[], clusters=[]
+    )
 
     def _get_user_profile_service():
         return mock_profile_service
@@ -61,7 +63,11 @@ class TestAPIEndpoints:
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
     def test_upload_watch_history_success(
-        self, mock_recommendation_manager, mock_user_profile_service, client, sample_movies_data
+        self,
+        mock_recommendation_manager,
+        mock_user_profile_service,
+        client,
+        sample_movies_data,
     ):
         # Arrange
         mock_user_profile_service.return_value = AsyncMock()
@@ -90,7 +96,13 @@ class TestAPIEndpoints:
             }
         ]"""
 
-        files = {"file": ("watch_history.json", io.BytesIO(json_content.encode("utf-8")), "application/json")}
+        files = {
+            "file": (
+                "watch_history.json",
+                io.BytesIO(json_content.encode("utf-8")),
+                "application/json",
+            )
+        }
 
         # Act
         response = client.post("/upload-watch-history?user_id=test_user", files=files)
@@ -103,13 +115,21 @@ class TestAPIEndpoints:
 
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
-    def test_upload_watch_history_without_movies(self, mock_recommendation_manager, mock_user_profile_service, client):
+    def test_upload_watch_history_without_movies(
+        self, mock_recommendation_manager, mock_user_profile_service, client
+    ):
         # Arrange
         mock_user_profile_service.return_value = AsyncMock()
         mock_recommendation_manager.return_value = AsyncMock()
 
         json_content = "[]"
-        files = {"file": ("watch_history.json", io.BytesIO(json_content.encode("utf-8")), "application/json")}
+        files = {
+            "file": (
+                "watch_history.json",
+                io.BytesIO(json_content.encode("utf-8")),
+                "application/json",
+            )
+        }
 
         # Act
         response = client.post("/upload-watch-history?user_id=test_user", files=files)
@@ -123,7 +143,11 @@ class TestAPIEndpoints:
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
     def test_get_recommendations_with_empty_filters(
-        self, mock_recommendation_manager, mock_user_profile_service, mock_get_profile, client
+        self,
+        mock_recommendation_manager,
+        mock_user_profile_service,
+        mock_get_profile,
+        client,
     ):
         # Arrange
         movie = SimpleNamespace(
@@ -137,8 +161,12 @@ class TestAPIEndpoints:
             watched_at="2023-01-01",
         )
         centroid = SimpleNamespace(vector=np.zeros(3072))
-        cluster = SimpleNamespace(centroid=centroid, movies=[movie], count=1, average_rating=5.0)
-        mock_get_profile.return_value = SimpleNamespace(user_id="test_user", movies=[movie], clusters=[cluster])
+        cluster = SimpleNamespace(
+            centroid=centroid, movies=[movie], count=1, average_rating=5.0
+        )
+        mock_get_profile.return_value = SimpleNamespace(
+            user_id="test_user", movies=[movie], clusters=[cluster]
+        )
         mock_user_profile_service.return_value = AsyncMock()
         mock_recommendation_manager.return_value = AsyncMock()
         mock_recommendation_manager.return_value.recommend.return_value = MagicMock(
@@ -157,7 +185,9 @@ class TestAPIEndpoints:
         )
 
         # Act
-        response = client.post("/recommend", json={"user_id": "test_user", "filters": {}})
+        response = client.post(
+            "/recommend", json={"user_id": "test_user", "filters": {}}
+        )
 
         # Assert
         assert response.status_code == 200
@@ -169,7 +199,11 @@ class TestAPIEndpoints:
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
     def test_get_recommendations_with_nonexistent_user(
-        self, mock_recommendation_manager, mock_user_profile_service, mock_get_profile, client
+        self,
+        mock_recommendation_manager,
+        mock_user_profile_service,
+        mock_get_profile,
+        client,
     ):
         # Arrange
         mock_get_profile.return_value = None
@@ -177,7 +211,9 @@ class TestAPIEndpoints:
         mock_recommendation_manager.return_value = AsyncMock()
 
         # Act
-        response = client.post("/recommend", json={"user_id": "nonexistent_user", "filters": {}})
+        response = client.post(
+            "/recommend", json={"user_id": "nonexistent_user", "filters": {}}
+        )
 
         # Assert
         assert response.status_code == 404
@@ -186,13 +222,17 @@ class TestAPIEndpoints:
 
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
-    def test_get_recommendations_with_invalid_filters(self, mock_recommendation_manager, mock_user_profile_service, client):
+    def test_get_recommendations_with_invalid_filters(
+        self, mock_recommendation_manager, mock_user_profile_service, client
+    ):
         # Arrange
         mock_user_profile_service.return_value = AsyncMock()
         mock_recommendation_manager.return_value = AsyncMock()
 
         # Act
-        response = client.post("/recommend", json={"user_id": "test_user", "min_year": "invalid"})
+        response = client.post(
+            "/recommend", json={"user_id": "test_user", "min_year": "invalid"}
+        )
 
         # Assert
         assert response.status_code == 422
@@ -201,7 +241,11 @@ class TestAPIEndpoints:
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
     def test_get_recommendations_with_complex_filters(
-        self, mock_recommendation_manager, mock_user_profile_service, mock_get_profile, client
+        self,
+        mock_recommendation_manager,
+        mock_user_profile_service,
+        mock_get_profile,
+        client,
     ):
         # Arrange
         movie = SimpleNamespace(
@@ -215,8 +259,12 @@ class TestAPIEndpoints:
             watched_at="2023-01-01",
         )
         centroid = SimpleNamespace(vector=np.zeros(3072))
-        cluster = SimpleNamespace(centroid=centroid, movies=[movie], count=1, average_rating=5.0)
-        mock_get_profile.return_value = SimpleNamespace(user_id="test_user", movies=[movie], clusters=[cluster])
+        cluster = SimpleNamespace(
+            centroid=centroid, movies=[movie], count=1, average_rating=5.0
+        )
+        mock_get_profile.return_value = SimpleNamespace(
+            user_id="test_user", movies=[movie], clusters=[cluster]
+        )
         mock_user_profile_service.return_value = AsyncMock()
         mock_recommendation_manager.return_value = AsyncMock()
         mock_recommendation_manager.return_value.recommend.return_value = MagicMock(
@@ -239,7 +287,12 @@ class TestAPIEndpoints:
             "/recommend",
             json={
                 "user_id": "test_user",
-                "filters": {"genres": ["Action"], "min_year": 2000, "max_year": 2010, "countries": ["USA"]},
+                "filters": {
+                    "genres": ["Action"],
+                    "min_year": 2000,
+                    "max_year": 2010,
+                    "countries": ["USA"],
+                },
             },
         )
 
@@ -252,7 +305,11 @@ class TestAPIEndpoints:
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
     def test_upload_watch_history_with_large_dataset(
-        self, mock_recommendation_manager, mock_user_profile_service, mock_create_and_save_profile, client
+        self,
+        mock_recommendation_manager,
+        mock_user_profile_service,
+        mock_create_and_save_profile,
+        client,
     ):
         # Arrange
         mock_user_profile_service.return_value = AsyncMock()
@@ -268,7 +325,13 @@ class TestAPIEndpoints:
                 json_content += ","
         json_content += "]"
 
-        files = {"file": ("watch_history.json", io.BytesIO(json_content.encode("utf-8")), "application/json")}
+        files = {
+            "file": (
+                "watch_history.json",
+                io.BytesIO(json_content.encode("utf-8")),
+                "application/json",
+            )
+        }
 
         # Act
         response = client.post("/upload-watch-history?user_id=test_user", files=files)
@@ -282,14 +345,24 @@ class TestAPIEndpoints:
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
     def test_upload_watch_history_validation(
-        self, mock_recommendation_manager, mock_user_profile_service, mock_get_profile, client
+        self,
+        mock_recommendation_manager,
+        mock_user_profile_service,
+        mock_get_profile,
+        client,
     ):
         # Arrange
         mock_user_profile_service.return_value = AsyncMock()
         mock_recommendation_manager.return_value = AsyncMock()
 
         json_content = "invalid json content"
-        files = {"file": ("watch_history.json", io.BytesIO(json_content.encode("utf-8")), "application/json")}
+        files = {
+            "file": (
+                "watch_history.json",
+                io.BytesIO(json_content.encode("utf-8")),
+                "application/json",
+            )
+        }
 
         # Act
         response = client.post("/upload-watch-history?user_id=test_user", files=files)
@@ -300,10 +373,15 @@ class TestAPIEndpoints:
     @patch.object(UserProfileService, "get_profile", new_callable=AsyncMock)
     @patch("api.routes.get_user_profile_service")
     @patch("api.routes.get_recommendation_manager")
-    def test_get_profile(self, mock_recommendation_manager, mock_user_profile_service, mock_get_profile, client):
+    def test_get_profile(
+        self,
+        mock_recommendation_manager,
+        mock_user_profile_service,
+        mock_get_profile,
+        client,
+    ):
         # Arrange
         from domain.entities import UserProfile
-        from schemas.watch_history import MovieHistoryItem
 
         profile = UserProfile(user_id="test_user", movies=[], clusters=[])
         mock_get_profile.return_value = profile

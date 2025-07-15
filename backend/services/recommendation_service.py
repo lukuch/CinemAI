@@ -5,15 +5,17 @@ from injector import inject
 from structlog.stdlib import BoundLogger
 
 from domain.entities import Movie, UserProfile
-from domain.interfaces import RecommendationService
+from domain.interfaces import IRecommendationService
 
 
-class DefaultRecommendationService(RecommendationService):
+class RecommendationService(IRecommendationService):
     @inject
     def __init__(self, logger: BoundLogger):
         self.logger = logger
 
-    def recommend(self, user_profile: UserProfile, candidates: List[Movie], alpha: float = 5.0) -> List[Tuple[float, Movie]]:
+    def recommend(
+        self, user_profile: UserProfile, candidates: List[Movie], alpha: float = 5.0
+    ) -> List[Tuple[float, Movie]]:
         # Stack all cluster centroids into a matrix
         centroids = np.stack([c.centroid.vector for c in user_profile.clusters])
         centroids_norm = np.linalg.norm(centroids, axis=1)

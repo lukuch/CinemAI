@@ -10,10 +10,10 @@ from structlog.stdlib import BoundLogger
 
 from core.settings import settings
 from domain.entities import Embedding
-from domain.interfaces import EmbeddingService
+from domain.interfaces import IEmbeddingService
 
 
-class OpenAIEmbeddingService(EmbeddingService):
+class OpenAIEmbeddingService(IEmbeddingService):
     @inject
     def __init__(self, logger: BoundLogger):
         self.client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
@@ -37,7 +37,7 @@ class OpenAIEmbeddingService(EmbeddingService):
                 pipe.set(
                     self._cache_key(batch_texts[j]),
                     orjson.dumps(vector),
-                    ex=60 * 60 * 24 * 30,
+                    expire=60 * 60 * 24 * 30,
                 )
             pipe.execute()
         except Exception:

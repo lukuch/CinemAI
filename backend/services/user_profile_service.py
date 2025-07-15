@@ -2,22 +2,23 @@ from structlog.stdlib import BoundLogger
 
 from domain.entities import Movie, MovieHistoryItem, UserProfile
 from domain.interfaces import (
-    ClusteringService,
-    EmbeddingService,
-    FieldDetectionService,
-    TMDBService,
-    VectorStoreRepository,
+    IClusteringService,
+    IEmbeddingService,
+    IFieldDetectionService,
+    IMovieApiService,
+    IUserProfileService,
+    IVectorStoreRepository,
 )
 
 
-class UserProfileService:
+class UserProfileService(IUserProfileService):
     def __init__(
         self,
-        embedder: EmbeddingService,
-        clusterer: ClusteringService,
-        tmdb: TMDBService,
-        field_detector: FieldDetectionService,
-        vectorstore: VectorStoreRepository,
+        embedder: IEmbeddingService,
+        clusterer: IClusteringService,
+        tmdb: IMovieApiService,
+        field_detector: IFieldDetectionService,
+        vectorstore: IVectorStoreRepository,
         logger: BoundLogger,
     ):
         self.embedder = embedder
@@ -31,13 +32,19 @@ class UserProfileService:
         """Get user profile from database."""
         return await self.vectorstore.get_user_profile(user_id)
 
-    async def create_and_save_profile(self, user_id: str, movies_data: list) -> UserProfile:
+    async def create_and_save_profile(
+        self, user_id: str, movies_data: list
+    ) -> UserProfile:
         """Create and save user profile from movies data."""
         self.logger.info(
             "Starting profile creation",
             user_id=user_id,
             input_movies=len(movies_data),
-            avg_rating=sum(m.get("rating", 0) for m in movies_data) / len(movies_data) if movies_data else 0,
+            avg_rating=(
+                sum(m.get("rating", 0) for m in movies_data) / len(movies_data)
+                if movies_data
+                else 0
+            ),
         )
 
         watch_history = await self._load_watch_history_from_content(movies_data)
@@ -48,7 +55,9 @@ class UserProfileService:
             conversion_rate=len(watch_history) / len(movies_data) if movies_data else 0,
         )
 
-        user_profile = await self._build_user_profile_from_history(user_id, watch_history)
+        user_profile = await self._build_user_profile_from_history(
+            user_id, watch_history
+        )
 
         await self.vectorstore.save_user_profile(user_profile)
         self.logger.info(
@@ -60,11 +69,15 @@ class UserProfileService:
 
         return user_profile
 
-    async def _load_watch_history_from_content(self, movies_data: list) -> list[MovieHistoryItem]:
+    async def _load_watch_history_from_content(
+        self, movies_data: list
+    ) -> list[MovieHistoryItem]:
         """Load watch history from movies data with batch processing."""
         movies = []
         # Use batch processing for better performance
-        converted_movies, excluded_movies = await self.field_detector.convert_movies_batch(movies_data)
+        converted_movies, excluded_movies = (
+            await self.field_detector.convert_movies_batch(movies_data)
+        )
 
         for excluded in excluded_movies:
             self.logger.warning(
@@ -78,18 +91,30 @@ class UserProfileService:
             try:
                 # Validate the converted data (extra safety)
                 if not self.field_detector.validate_movie_data(converted_data):
-                    self.logger.warning("Invalid movie data after conversion", movie_data=converted_data)
+                    self.logger.warning(
+                        "Invalid movie data after conversion", movie_data=converted_data
+                    )
                     continue
                 movie_item = MovieHistoryItem(**converted_data)
                 movies.append(movie_item)
             except Exception as e:
-                self.logger.warning("Failed to create movie item", movie_data=converted_data, error=str(e))
+                self.logger.warning(
+                    "Failed to create movie item",
+                    movie_data=converted_data,
+                    error=str(e),
+                )
                 continue
         self.logger.info("Watch history loaded and validated", count=len(movies))
         return movies
 
-    async def _build_user_profile_from_history(self, user_id: str, watch_history: list[MovieHistoryItem]) -> UserProfile:
-        self.logger.info("Building user profile from history", user_id=user_id, total_movies=len(watch_history))
+    async def _build_user_profile_from_history(
+        self, user_id: str, watch_history: list[MovieHistoryItem]
+    ) -> UserProfile:
+        self.logger.info(
+            "Building user profile from history",
+            user_id=user_id,
+            total_movies=len(watch_history),
+        )
 
         high_rated_movies = [m for m in watch_history if m.rating > 4]
         if not high_rated_movies:
@@ -102,10 +127,17 @@ class UserProfileService:
             "High-rated movies filtered",
             high_rated_count=len(high_rated_movies),
             total_movies=len(watch_history),
-            avg_rating=sum(m.rating for m in watch_history) / len(watch_history) if watch_history else 0,
+            avg_rating=(
+                sum(m.rating for m in watch_history) / len(watch_history)
+                if watch_history
+                else 0
+            ),
         )
 
-        texts = [f"{m.title} {m.description or ''} {' '.join(m.genres)} {' '.join(m.countries)}" for m in movies_for_profile]
+        texts = [
+            f"{m.title} {m.description or ''} {' '.join(m.genres)} {' '.join(m.countries)}"
+            for m in movies_for_profile
+        ]
         self.logger.info("Text preparation completed", texts_count=len(texts))
 
         embeddings = await self.embedder.embed(texts)
@@ -136,4 +168,6 @@ class UserProfileService:
             high_rated_movies=len(high_rated_movies),
         )
 
-        return UserProfile(user_id=user_id, clusters=clusters, movies=movies_for_profile)
+        return UserProfile(
+            user_id=user_id, clusters=clusters, movies=movies_for_profile
+        )

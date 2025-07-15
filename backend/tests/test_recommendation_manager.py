@@ -1,8 +1,6 @@
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
 
-from domain.entities import Movie, UserProfile
+from domain.entities import UserProfile
 from managers.recommendation_manager import RecommendationManager
 from schemas.recommendation import RecommendationRequest, RecommendationResponse
 
@@ -12,7 +10,9 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_successful_flow(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test the complete recommendation flow with all components working correctly."""
         # Act
@@ -23,19 +23,23 @@ class TestRecommendationManager:
         assert hasattr(result, "recommendations")
         assert len(result.recommendations) > 0
 
-        recommendation_manager.user_profile_service.get_profile.assert_called_once_with("test_user")
+        recommendation_manager.user_profile_service.get_profile.assert_called_once_with(
+            "test_user"
+        )
         recommendation_manager.embedder.embed.assert_called()
         recommendation_manager.recommender.recommend.assert_called()
         recommendation_manager.llm.rerank.assert_called()
 
     @pytest.mark.asyncio
     async def test_recommend_with_empty_user_profile(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test recommendation with empty user profile."""
         # Arrange
-        recommendation_manager.user_profile_service.get_profile.return_value = UserProfile(
-            user_id="test_user", movies=[], clusters=[]
+        recommendation_manager.user_profile_service.get_profile.return_value = (
+            UserProfile(user_id="test_user", movies=[], clusters=[])
         )
 
         # Act
@@ -47,7 +51,9 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_with_nonexistent_user(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test recommendation for nonexistent user."""
         # Arrange
@@ -58,7 +64,9 @@ class TestRecommendationManager:
             await recommendation_manager.recommend(sample_recommendation_request)
 
     @pytest.mark.asyncio
-    async def test_recommend_with_complex_filters(self, recommendation_manager: RecommendationManager):
+    async def test_recommend_with_complex_filters(
+        self, recommendation_manager: RecommendationManager
+    ):
         """Test recommendation with complex filter combinations."""
         # Arrange
         complex_request = RecommendationRequest(
@@ -81,7 +89,9 @@ class TestRecommendationManager:
         assert len(result.recommendations) > 0
 
     @pytest.mark.asyncio
-    async def test_recommend_with_empty_filters(self, recommendation_manager: RecommendationManager):
+    async def test_recommend_with_empty_filters(
+        self, recommendation_manager: RecommendationManager
+    ):
         """Test recommendation with empty filters."""
         # Arrange
         empty_request = RecommendationRequest(user_id="test_user", filters={})
@@ -94,11 +104,19 @@ class TestRecommendationManager:
         assert len(result.recommendations) > 0
 
     @pytest.mark.asyncio
-    async def test_recommend_with_invalid_filters(self, recommendation_manager: RecommendationManager):
+    async def test_recommend_with_invalid_filters(
+        self, recommendation_manager: RecommendationManager
+    ):
         """Test recommendation with invalid filter values."""
         # Arrange
         invalid_request = RecommendationRequest(
-            user_id="test_user", filters={"min_year": 3000, "max_year": 1900, "min_duration": -10, "max_duration": 0}
+            user_id="test_user",
+            filters={
+                "min_year": 3000,
+                "max_year": 1900,
+                "min_duration": -10,
+                "max_duration": 0,
+            },
         )
 
         # Act
@@ -110,7 +128,9 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_service_integration(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test integration between all services in the recommendation flow."""
         # Act
@@ -125,7 +145,9 @@ class TestRecommendationManager:
         recommendation_manager.llm.rerank.assert_called()
 
     @pytest.mark.asyncio
-    async def test_recommend_with_large_user_profile(self, recommendation_manager: RecommendationManager):
+    async def test_recommend_with_large_user_profile(
+        self, recommendation_manager: RecommendationManager
+    ):
         """Test recommendation with large user profile."""
         # Arrange
         from schemas.watch_history import MovieHistoryItem
@@ -147,7 +169,9 @@ class TestRecommendationManager:
             ],
             clusters=[],
         )
-        recommendation_manager.user_profile_service.get_profile.return_value = large_profile
+        recommendation_manager.user_profile_service.get_profile.return_value = (
+            large_profile
+        )
 
         request = RecommendationRequest(user_id="test_user", filters={})
 
@@ -160,11 +184,15 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_error_handling(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test error handling in recommendation flow."""
         # Arrange
-        recommendation_manager.user_profile_service.get_profile.side_effect = Exception("Database error")
+        recommendation_manager.user_profile_service.get_profile.side_effect = Exception(
+            "Database error"
+        )
 
         # Act & Assert
         with pytest.raises(Exception):
@@ -172,11 +200,15 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_with_embedding_service_error(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test recommendation when embedding service fails."""
         # Arrange
-        recommendation_manager.embedder.embed.side_effect = Exception("Embedding service error")
+        recommendation_manager.embedder.embed.side_effect = Exception(
+            "Embedding service error"
+        )
 
         # Act & Assert
         with pytest.raises(Exception):
@@ -184,11 +216,15 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_with_recommendation_service_error(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test recommendation when recommendation service fails."""
         # Arrange
-        recommendation_manager.recommender.recommend.side_effect = Exception("Recommendation service error")
+        recommendation_manager.recommender.recommend.side_effect = Exception(
+            "Recommendation service error"
+        )
 
         # Act & Assert
         with pytest.raises(Exception):
@@ -196,7 +232,9 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_with_llm_service_error(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test recommendation when LLM service fails."""
         # Arrange
@@ -208,7 +246,9 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_response_structure(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test that recommendation response has correct structure."""
         # Act
@@ -232,7 +272,9 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_similarity_scores(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test that recommendations have valid similarity scores."""
         # Act
@@ -249,7 +291,9 @@ class TestRecommendationManager:
 
     @pytest.mark.asyncio
     async def test_recommend_justification_presence(
-        self, recommendation_manager: RecommendationManager, sample_recommendation_request
+        self,
+        recommendation_manager: RecommendationManager,
+        sample_recommendation_request,
     ):
         """Test that recommendations include justifications."""
         # Act
@@ -265,7 +309,9 @@ class TestRecommendationManager:
             assert len(justification) > 0
 
     @pytest.mark.asyncio
-    async def test_recommend_performance_with_large_dataset(self, recommendation_manager: RecommendationManager):
+    async def test_recommend_performance_with_large_dataset(
+        self, recommendation_manager: RecommendationManager
+    ):
         """Test recommendation performance with large dataset."""
         # Arrange
         large_request = RecommendationRequest(
@@ -286,11 +332,19 @@ class TestRecommendationManager:
         assert len(result.recommendations) > 0
 
     @pytest.mark.asyncio
-    async def test_recommend_filter_application(self, recommendation_manager: RecommendationManager):
+    async def test_recommend_filter_application(
+        self, recommendation_manager: RecommendationManager
+    ):
         """Test that filters are properly applied to recommendations."""
         # Arrange
         specific_request = RecommendationRequest(
-            user_id="test_user", filters={"genres": ["Action"], "min_year": 2010, "max_year": 2015, "countries": ["USA"]}
+            user_id="test_user",
+            filters={
+                "genres": ["Action"],
+                "min_year": 2010,
+                "max_year": 2015,
+                "countries": ["USA"],
+            },
         )
 
         # Act
@@ -301,7 +355,9 @@ class TestRecommendationManager:
         assert len(result.recommendations) > 0
 
     @pytest.mark.asyncio
-    async def test_recommend_empty_result_handling(self, recommendation_manager: RecommendationManager):
+    async def test_recommend_empty_result_handling(
+        self, recommendation_manager: RecommendationManager
+    ):
         """Test handling of empty recommendation results."""
         # Arrange
         recommendation_manager.recommender.recommend.return_value = []

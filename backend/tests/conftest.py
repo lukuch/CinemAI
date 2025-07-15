@@ -9,14 +9,15 @@ from structlog.stdlib import BoundLogger
 from core.di import create_injector
 from domain.entities import Cluster, Embedding, Movie, MovieHistoryItem, UserProfile
 from domain.interfaces import (
-    ClusteringService,
-    EmbeddingService,
-    FieldDetectionService,
-    FilteringService,
-    LLMService,
-    RecommendationService,
-    TMDBService,
-    VectorStoreRepository,
+    IClusteringService,
+    IEmbeddingService,
+    IFieldDetectionService,
+    IFilteringService,
+    ILLMService,
+    IMovieApiService,
+    IRecommendationService,
+    IUserProfileService,
+    IVectorStoreRepository,
 )
 from managers.recommendation_manager import RecommendationManager
 from services.user_profile_service import UserProfileService
@@ -69,9 +70,9 @@ def mock_logger() -> BoundLogger:
 
 
 @pytest.fixture
-def mock_embedding_service() -> EmbeddingService:
+def mock_embedding_service() -> IEmbeddingService:
     """Create a mock embedding service."""
-    service = MagicMock(spec=EmbeddingService)
+    service = MagicMock(spec=IEmbeddingService)
 
     test_embeddings = [
         Embedding([0.1, 0.2, 0.3, 0.4, 0.5] * 100),
@@ -85,9 +86,9 @@ def mock_embedding_service() -> EmbeddingService:
 
 
 @pytest.fixture
-def mock_clustering_service() -> ClusteringService:
+def mock_clustering_service() -> IClusteringService:
     """Create a mock clustering service."""
-    service = MagicMock(spec=ClusteringService)
+    service = MagicMock(spec=IClusteringService)
 
     test_clusters = [
         Cluster(
@@ -123,9 +124,9 @@ def mock_clustering_service() -> ClusteringService:
 
 
 @pytest.fixture
-def mock_tmdb_service() -> TMDBService:
+def mock_tmdb_service() -> IMovieApiService:
     """Create a mock TMDB service."""
-    service = AsyncMock(spec=TMDBService)
+    service = AsyncMock(spec=IMovieApiService)
 
     test_candidates = [
         Movie(
@@ -165,9 +166,9 @@ def mock_tmdb_service() -> TMDBService:
 
 
 @pytest.fixture
-def mock_filtering_service() -> FilteringService:
+def mock_filtering_service() -> IFilteringService:
     """Create a mock filtering service."""
-    service = MagicMock(spec=FilteringService)
+    service = MagicMock(spec=IFilteringService)
 
     def mock_filter(movies, filters):
         return movies
@@ -177,9 +178,9 @@ def mock_filtering_service() -> FilteringService:
 
 
 @pytest.fixture
-def mock_recommendation_service() -> RecommendationService:
+def mock_recommendation_service() -> IRecommendationService:
     """Create a mock recommendation service."""
-    service = MagicMock(spec=RecommendationService)
+    service = MagicMock(spec=IRecommendationService)
 
     test_recommendations = [
         (
@@ -215,9 +216,9 @@ def mock_recommendation_service() -> RecommendationService:
 
 
 @pytest.fixture
-def mock_field_detection_service() -> FieldDetectionService:
+def mock_field_detection_service() -> IFieldDetectionService:
     """Create a mock field detection service."""
-    service = AsyncMock(spec=FieldDetectionService)
+    service = AsyncMock(spec=IFieldDetectionService)
 
     test_converted = [
         {
@@ -248,9 +249,9 @@ def mock_field_detection_service() -> FieldDetectionService:
 
 
 @pytest.fixture
-def mock_llm_service() -> LLMService:
+def mock_llm_service() -> ILLMService:
     """Create a mock LLM service."""
-    service = MagicMock(spec=LLMService)
+    service = MagicMock(spec=ILLMService)
 
     test_reranked = [
         {
@@ -272,9 +273,9 @@ def mock_llm_service() -> LLMService:
 
 
 @pytest.fixture
-def mock_vector_store_repository() -> VectorStoreRepository:
+def mock_vector_store_repository() -> IVectorStoreRepository:
     """Create a mock vector store repository."""
-    repository = AsyncMock(spec=VectorStoreRepository)
+    repository = AsyncMock(spec=IVectorStoreRepository)
 
     test_profile = UserProfile(
         user_id="test_user",
@@ -327,13 +328,13 @@ def mock_vector_store_repository() -> VectorStoreRepository:
 
 @pytest.fixture
 def mock_user_profile_service(
-    mock_embedding_service: EmbeddingService,
-    mock_clustering_service: ClusteringService,
-    mock_tmdb_service: TMDBService,
-    mock_field_detection_service: FieldDetectionService,
-    mock_vector_store_repository: VectorStoreRepository,
+    mock_embedding_service: IEmbeddingService,
+    mock_clustering_service: IClusteringService,
+    mock_tmdb_service: IMovieApiService,
+    mock_field_detection_service: IFieldDetectionService,
+    mock_vector_store_repository: IVectorStoreRepository,
     mock_logger: BoundLogger,
-) -> UserProfileService:
+) -> IUserProfileService:
     """Create a mock user profile service with all dependencies."""
     service = UserProfileService(
         embedder=mock_embedding_service,
@@ -348,18 +349,18 @@ def mock_user_profile_service(
 
 @pytest.fixture
 def recommendation_manager(
-    mock_embedding_service: EmbeddingService,
-    mock_clustering_service: ClusteringService,
-    mock_tmdb_service: TMDBService,
-    mock_filtering_service: FilteringService,
-    mock_recommendation_service: RecommendationService,
-    mock_field_detection_service: FieldDetectionService,
-    mock_llm_service: LLMService,
-    mock_vector_store_repository: VectorStoreRepository,
+    mock_embedding_service: IEmbeddingService,
+    mock_clustering_service: IClusteringService,
+    mock_tmdb_service: IMovieApiService,
+    mock_filtering_service: IFilteringService,
+    mock_recommendation_service: IRecommendationService,
+    mock_field_detection_service: IFieldDetectionService,
+    mock_llm_service: ILLMService,
+    mock_vector_store_repository: IVectorStoreRepository,
     mock_logger: BoundLogger,
 ) -> RecommendationManager:
     """Create a recommendation manager with all mocked dependencies."""
-    mock_user_profile_service = AsyncMock(spec=UserProfileService)
+    mock_user_profile_service = AsyncMock(spec=IUserProfileService)
 
     from domain.entities import Cluster, Embedding, Movie, MovieHistoryItem, UserProfile
 

@@ -10,7 +10,9 @@ class TestUserProfileService:
     """Test suite for UserProfileService covering profile creation and retrieval."""
 
     @pytest.mark.asyncio
-    async def test_get_profile_success(self, mock_user_profile_service: UserProfileService):
+    async def test_get_profile_success(
+        self, mock_user_profile_service: UserProfileService
+    ):
         """Test successful profile retrieval."""
         # Act
         result = await mock_user_profile_service.get_profile("test_user")
@@ -22,10 +24,14 @@ class TestUserProfileService:
         assert len(result.clusters) == 1
 
     @pytest.mark.asyncio
-    async def test_get_profile_not_found(self, mock_user_profile_service: UserProfileService):
+    async def test_get_profile_not_found(
+        self, mock_user_profile_service: UserProfileService
+    ):
         """Test profile retrieval when profile doesn't exist."""
         # Arrange
-        mock_user_profile_service.vectorstore.get_user_profile = AsyncMock(return_value=None)
+        mock_user_profile_service.vectorstore.get_user_profile = AsyncMock(
+            return_value=None
+        )
 
         # Act
         result = await mock_user_profile_service.get_profile("nonexistent_user")
@@ -34,10 +40,14 @@ class TestUserProfileService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_create_and_save_profile_success(self, mock_user_profile_service: UserProfileService, sample_movies_data):
+    async def test_create_and_save_profile_success(
+        self, mock_user_profile_service: UserProfileService, sample_movies_data
+    ):
         """Test successful profile creation and saving."""
         # Act
-        result = await mock_user_profile_service.create_and_save_profile("test_user", sample_movies_data)
+        result = await mock_user_profile_service.create_and_save_profile(
+            "test_user", sample_movies_data
+        )
 
         # Assert
         assert isinstance(result, UserProfile)
@@ -45,19 +55,25 @@ class TestUserProfileService:
         assert len(result.movies) == 2
         assert len(result.clusters) == 1
 
-        mock_user_profile_service.field_detector.convert_movies_batch.assert_called_once_with(sample_movies_data)
+        mock_user_profile_service.field_detector.convert_movies_batch.assert_called_once_with(
+            sample_movies_data
+        )
         mock_user_profile_service.embedder.embed.assert_called_once()
         mock_user_profile_service.clusterer.cluster.assert_called_once()
         mock_user_profile_service.vectorstore.save_user_profile.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_and_save_profile_with_empty_data(self, mock_user_profile_service: UserProfileService):
+    async def test_create_and_save_profile_with_empty_data(
+        self, mock_user_profile_service: UserProfileService
+    ):
         """Test profile creation with empty movies data."""
         # Arrange
         empty_data = []
 
         # Act
-        result = await mock_user_profile_service.create_and_save_profile("test_user", empty_data)
+        result = await mock_user_profile_service.create_and_save_profile(
+            "test_user", empty_data
+        )
 
         # Assert
         assert isinstance(result, UserProfile)
@@ -76,7 +92,9 @@ class TestUserProfileService:
 
         # Act & Assert
         with pytest.raises(Exception, match="Field detection failed"):
-            await mock_user_profile_service.create_and_save_profile("test_user", sample_movies_data)
+            await mock_user_profile_service.create_and_save_profile(
+                "test_user", sample_movies_data
+            )
 
     @pytest.mark.asyncio
     async def test_create_and_save_profile_with_embedding_failure(
@@ -84,11 +102,15 @@ class TestUserProfileService:
     ):
         """Test profile creation when embedding generation fails."""
         # Arrange
-        mock_user_profile_service.embedder.embed = AsyncMock(side_effect=Exception("Embedding failed"))
+        mock_user_profile_service.embedder.embed = AsyncMock(
+            side_effect=Exception("Embedding failed")
+        )
 
         # Act & Assert
         with pytest.raises(Exception, match="Embedding failed"):
-            await mock_user_profile_service.create_and_save_profile("test_user", sample_movies_data)
+            await mock_user_profile_service.create_and_save_profile(
+                "test_user", sample_movies_data
+            )
 
     @pytest.mark.asyncio
     async def test_create_and_save_profile_with_clustering_failure(
@@ -96,11 +118,15 @@ class TestUserProfileService:
     ):
         """Test profile creation when clustering fails."""
         # Arrange
-        mock_user_profile_service.clusterer.cluster = MagicMock(side_effect=Exception("Clustering failed"))
+        mock_user_profile_service.clusterer.cluster = MagicMock(
+            side_effect=Exception("Clustering failed")
+        )
 
         # Act & Assert
         with pytest.raises(Exception, match="Clustering failed"):
-            await mock_user_profile_service.create_and_save_profile("test_user", sample_movies_data)
+            await mock_user_profile_service.create_and_save_profile(
+                "test_user", sample_movies_data
+            )
 
     @pytest.mark.asyncio
     async def test_create_and_save_profile_with_save_failure(
@@ -108,11 +134,15 @@ class TestUserProfileService:
     ):
         """Test profile creation when saving to database fails."""
         # Arrange
-        mock_user_profile_service.vectorstore.save_user_profile = AsyncMock(side_effect=Exception("Save failed"))
+        mock_user_profile_service.vectorstore.save_user_profile = AsyncMock(
+            side_effect=Exception("Save failed")
+        )
 
         # Act & Assert
         with pytest.raises(Exception, match="Save failed"):
-            await mock_user_profile_service.create_and_save_profile("test_user", sample_movies_data)
+            await mock_user_profile_service.create_and_save_profile(
+                "test_user", sample_movies_data
+            )
 
     @pytest.mark.asyncio
     async def test_load_watch_history_from_content_success(
@@ -120,7 +150,9 @@ class TestUserProfileService:
     ):
         """Test loading watch history from content."""
         # Act
-        result = await mock_user_profile_service._load_watch_history_from_content(sample_movies_data)
+        result = await mock_user_profile_service._load_watch_history_from_content(
+            sample_movies_data
+        )
 
         # Assert
         assert len(result) == 2
@@ -128,7 +160,9 @@ class TestUserProfileService:
         assert result[0].title == "The Matrix"
         assert result[1].title == "Inception"
 
-        mock_user_profile_service.field_detector.convert_movies_batch.assert_called_once_with(sample_movies_data)
+        mock_user_profile_service.field_detector.convert_movies_batch.assert_called_once_with(
+            sample_movies_data
+        )
 
     @pytest.mark.asyncio
     async def test_load_watch_history_with_excluded_movies(
@@ -155,10 +189,15 @@ class TestUserProfileService:
                 "missing_fields": ["year", "genres"],
             }
         ]
-        mock_user_profile_service.field_detector.convert_movies_batch.return_value = (converted_movies, excluded_movies)
+        mock_user_profile_service.field_detector.convert_movies_batch.return_value = (
+            converted_movies,
+            excluded_movies,
+        )
 
         # Act
-        result = await mock_user_profile_service._load_watch_history_from_content(sample_movies_data)
+        result = await mock_user_profile_service._load_watch_history_from_content(
+            sample_movies_data
+        )
 
         # Assert
         assert len(result) == 1
@@ -182,17 +221,26 @@ class TestUserProfileService:
                 "watched_at": "2023-01-15",
             }
         ]
-        mock_user_profile_service.field_detector.convert_movies_batch.return_value = (converted_movies, [])
-        mock_user_profile_service.field_detector.validate_movie_data.return_value = False
+        mock_user_profile_service.field_detector.convert_movies_batch.return_value = (
+            converted_movies,
+            [],
+        )
+        mock_user_profile_service.field_detector.validate_movie_data.return_value = (
+            False
+        )
 
         # Act
-        result = await mock_user_profile_service._load_watch_history_from_content(sample_movies_data)
+        result = await mock_user_profile_service._load_watch_history_from_content(
+            sample_movies_data
+        )
 
         # Assert
         assert len(result) == 0
 
     @pytest.mark.asyncio
-    async def test_build_user_profile_from_history_success(self, mock_user_profile_service: UserProfileService):
+    async def test_build_user_profile_from_history_success(
+        self, mock_user_profile_service: UserProfileService
+    ):
         """Test building user profile from watch history."""
         # Arrange
         watch_history = [
@@ -219,7 +267,9 @@ class TestUserProfileService:
         ]
 
         # Act
-        result = await mock_user_profile_service._build_user_profile_from_history("test_user", watch_history)
+        result = await mock_user_profile_service._build_user_profile_from_history(
+            "test_user", watch_history
+        )
 
         # Assert
         assert isinstance(result, UserProfile)
@@ -231,7 +281,9 @@ class TestUserProfileService:
         mock_user_profile_service.clusterer.cluster.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_build_user_profile_with_high_rated_filtering(self, mock_user_profile_service: UserProfileService):
+    async def test_build_user_profile_with_high_rated_filtering(
+        self, mock_user_profile_service: UserProfileService
+    ):
         """Test building user profile with high-rated movie filtering."""
         # Arrange
         watch_history = [
@@ -258,7 +310,9 @@ class TestUserProfileService:
         ]
 
         # Act
-        result = await mock_user_profile_service._build_user_profile_from_history("test_user", watch_history)
+        result = await mock_user_profile_service._build_user_profile_from_history(
+            "test_user", watch_history
+        )
 
         # Assert
         assert isinstance(result, UserProfile)
@@ -267,7 +321,9 @@ class TestUserProfileService:
         assert result.movies[0].title == "The Matrix"
 
     @pytest.mark.asyncio
-    async def test_build_user_profile_with_no_high_rated_movies(self, mock_user_profile_service: UserProfileService):
+    async def test_build_user_profile_with_no_high_rated_movies(
+        self, mock_user_profile_service: UserProfileService
+    ):
         """Test building user profile when no movies meet the high-rated threshold."""
         # Arrange
         watch_history = [
@@ -294,7 +350,9 @@ class TestUserProfileService:
         ]
 
         # Act
-        result = await mock_user_profile_service._build_user_profile_from_history("test_user", watch_history)
+        result = await mock_user_profile_service._build_user_profile_from_history(
+            "test_user", watch_history
+        )
 
         # Assert
         assert isinstance(result, UserProfile)
@@ -303,7 +361,9 @@ class TestUserProfileService:
         mock_user_profile_service.embedder.embed.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_build_user_profile_logging_verification(self, mock_user_profile_service: UserProfileService):
+    async def test_build_user_profile_logging_verification(
+        self, mock_user_profile_service: UserProfileService
+    ):
         """Test that logging is properly configured and working."""
         # Arrange
         watch_history = [
@@ -320,7 +380,9 @@ class TestUserProfileService:
         ]
 
         # Act
-        result = await mock_user_profile_service._build_user_profile_from_history("test_user", watch_history)
+        result = await mock_user_profile_service._build_user_profile_from_history(
+            "test_user", watch_history
+        )
 
         # Assert
         assert isinstance(result, UserProfile)
@@ -333,7 +395,9 @@ class TestUserProfileService:
     ):
         """Test that logging is properly configured and working during profile creation."""
         # Act
-        result = await mock_user_profile_service.create_and_save_profile("test_user", sample_movies_data)
+        result = await mock_user_profile_service.create_and_save_profile(
+            "test_user", sample_movies_data
+        )
 
         # Assert
         assert isinstance(result, UserProfile)

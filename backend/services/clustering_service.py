@@ -9,11 +9,11 @@ from sklearn.metrics import silhouette_score
 from structlog.stdlib import BoundLogger
 
 from domain.entities import Cluster, Embedding, Movie
-from domain.interfaces import ClusteringService
+from domain.interfaces import IClusteringService
 from utils.weighting import rating_weight, recency_weight
 
 
-class SklearnClusteringService(ClusteringService):
+class SklearnClusteringService(IClusteringService):
     @inject
     def __init__(self, logger: BoundLogger):
         self.logger = logger

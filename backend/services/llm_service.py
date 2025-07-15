@@ -12,7 +12,7 @@ from structlog.stdlib import BoundLogger
 
 from core.settings import settings
 from domain.entities import Movie, UserProfile
-from domain.interfaces import LLMService
+from domain.interfaces import ILLMService
 
 
 class Recommendation(BaseModel):
@@ -26,7 +26,7 @@ class Recommendations(RootModel[TypingList[Recommendation]]):
     pass
 
 
-class OpenAILLMService(LLMService):
+class OpenAILLMService(ILLMService):
     @inject
     def __init__(self, logger: BoundLogger):
         self.model = "gpt-4o"
@@ -34,13 +34,24 @@ class OpenAILLMService(LLMService):
         self.parser = PydanticOutputParser(pydantic_object=Recommendations)
         self.logger = logger
 
-    def rerank(self, user_profile: UserProfile, candidates: List[Movie]) -> List[Dict[str, Any]]:
-        self.logger.info("Starting LLM reranking", candidates_count=len(candidates), clusters_count=len(user_profile.clusters))
+    def rerank(
+        self, user_profile: UserProfile, candidates: List[Movie]
+    ) -> List[Dict[str, Any]]:
+        self.logger.info(
+            "Starting LLM reranking",
+            candidates_count=len(candidates),
+            clusters_count=len(user_profile.clusters),
+        )
         if not user_profile.clusters:
             self.logger.info("Empty user profile: returning empty rerank result")
             return []
         taste_summary = self._build_taste_summary(user_profile)
-        candidate_list = "\n".join([f"{i+1}. {m.title} ({m.year}) - {', '.join(m.genres)}" for i, m in enumerate(candidates)])
+        candidate_list = "\n".join(
+            [
+                f"{i+1}. {m.title} ({m.year}) - {', '.join(m.genres)}"
+                for i, m in enumerate(candidates)
+            ]
+        )
         prompt = PromptTemplate(
             template="""
 You are an expert movie recommender. Given the following user taste profile and candidate movies, select the top 10 recommendations and provide a brief justification for each.
@@ -62,7 +73,9 @@ Return your answer as a JSON array, where each item has:
 {format_instructions}
 """,
             input_variables=["taste_summary", "candidate_list"],
-            partial_variables={"format_instructions": self.parser.get_format_instructions()},
+            partial_variables={
+                "format_instructions": self.parser.get_format_instructions()
+            },
         )
         chain = prompt | self.llm | self.parser
         result = chain.invoke(
@@ -88,8 +101,16 @@ Return your answer as a JSON array, where each item has:
             return ", ".join(top) if top else f"varied {label}"
 
         def summarize_cluster(cluster, idx):
-            all_genres = [genre for movie in cluster.movies for genre in getattr(movie, "genres", [])]
-            all_countries = [country for movie in cluster.movies for country in getattr(movie, "countries", [])]
+            all_genres = [
+                genre
+                for movie in cluster.movies
+                for genre in getattr(movie, "genres", [])
+            ]
+            all_countries = [
+                country
+                for movie in cluster.movies
+                for country in getattr(movie, "countries", [])
+            ]
             genre_counts = Counter(all_genres)
             country_counts = Counter(all_countries)
             top_genres = summarize_top(genre_counts, "genres")
@@ -99,7 +120,10 @@ Return your answer as a JSON array, where each item has:
                 f"main genres: {top_genres}, main countries: {top_countries}"
             )
 
-        summary = "\n".join(summarize_cluster(cluster, i) for i, cluster in enumerate(user_profile.clusters))
+        summary = "\n".join(
+            summarize_cluster(cluster, i)
+            for i, cluster in enumerate(user_profile.clusters)
+        )
 
         self.logger.info(
             "Taste summary built",

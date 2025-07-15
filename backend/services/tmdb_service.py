@@ -9,10 +9,10 @@ from structlog.stdlib import BoundLogger
 
 from core.settings import settings
 from domain.entities import Movie
-from domain.interfaces import TMDBService
+from domain.interfaces import IMovieApiService
 
 
-class TMDBApiService(TMDBService):
+class TMDBApiService(IMovieApiService):
     @inject
     def __init__(self, logger: BoundLogger):
         self.api_key = settings.tmdb_api_key
@@ -31,10 +31,12 @@ class TMDBApiService(TMDBService):
         resp.raise_for_status()
         genres = resp.json()["genres"]
         genre_map = {g["id"]: g["name"] for g in genres}
-        self.redis.set(cache_key, orjson.dumps(genre_map), ex=60 * 60 * 24 * 30)
+        self.redis.set(cache_key, orjson.dumps(genre_map), expire=60 * 60 * 24 * 30)
         return genre_map
 
-    async def enrich_movies_batch(self, movies_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def enrich_movies_batch(
+        self, movies_data: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Enrich multiple movies in batch for better performance.
         """
@@ -55,7 +57,9 @@ class TMDBApiService(TMDBService):
                     enriched_indices.append(i)
 
             self.logger.info(
-                "Enrichment analysis completed", movies_to_enrich=len(movies_to_enrich), already_enriched=len(enriched_indices)
+                "Enrichment analysis completed",
+                movies_to_enrich=len(movies_to_enrich),
+                already_enriched=len(enriched_indices),
             )
 
             if not movies_to_enrich:
@@ -67,7 +71,9 @@ class TMDBApiService(TMDBService):
             # Apply enrichment results
             result = movies_data.copy()
             successful_enrichments = 0
-            for (original_index, movie_data), enriched_data in zip(movies_to_enrich, enriched_results):
+            for (original_index, movie_data), enriched_data in zip(
+                movies_to_enrich, enriched_results
+            ):
                 if enriched_data:
                     result[original_index] = enriched_data
                     successful_enrichments += 1
@@ -75,7 +81,11 @@ class TMDBApiService(TMDBService):
             self.logger.info(
                 "Batch enrichment completed",
                 successful_enrichments=successful_enrichments,
-                enrichment_rate=successful_enrichments / len(movies_to_enrich) if movies_to_enrich else 0,
+                enrichment_rate=(
+                    successful_enrichments / len(movies_to_enrich)
+                    if movies_to_enrich
+                    else 0
+                ),
             )
 
             return result
@@ -84,7 +94,9 @@ class TMDBApiService(TMDBService):
             self.logger.error("Batch enrichment failed", error=str(e))
             return movies_data  # Return original data on any error
 
-    async def _fetch_descriptions_batch(self, movies_to_enrich: List[tuple]) -> List[Dict[str, Any]]:
+    async def _fetch_descriptions_batch(
+        self, movies_to_enrich: List[tuple]
+    ) -> List[Dict[str, Any]]:
         """
         Fetch descriptions for multiple movies in parallel.
         """
@@ -104,7 +116,9 @@ class TMDBApiService(TMDBService):
             enriched_movies = []
             for (_, movie_data), description in zip(movies_to_enrich, descriptions):
                 if isinstance(description, Exception) or not description:
-                    enriched_movies.append(movie_data)  # Keep original if enrichment failed
+                    enriched_movies.append(
+                        movie_data
+                    )  # Keep original if enrichment failed
                 else:
                     enriched_data = movie_data.copy()
                     enriched_data["description"] = description
@@ -116,13 +130,20 @@ class TMDBApiService(TMDBService):
             # Return original movies if batch enrichment fails
             return [movie_data for _, movie_data in movies_to_enrich]
 
-    async def _fetch_description_from_tmdb(self, title: str, year: Optional[int] = None) -> Optional[str]:
+    async def _fetch_description_from_tmdb(
+        self, title: str, year: Optional[int] = None
+    ) -> Optional[str]:
         """
         Fetch movie description from TMDB API.
         """
         try:
             # Use TMDB search API
-            search_params = {"api_key": self.api_key, "language": "en-US", "query": title, "include_adult": False}
+            search_params = {
+                "api_key": self.api_key,
+                "language": "en-US",
+                "query": title,
+                "include_adult": False,
+            }
 
             if year:
                 search_params["year"] = year
@@ -158,7 +179,10 @@ class TMDBApiService(TMDBService):
             return None
 
     async def fetch_movies(self, filters: Dict[str, Any]) -> List[Movie]:
-        self.logger.info("Fetching movies from TMDB", filters_applied=list(filters.keys()) if filters else "none")
+        self.logger.info(
+            "Fetching movies from TMDB",
+            filters_applied=list(filters.keys()) if filters else "none",
+        )
 
         cached = self.redis.get("movies:all")
         if not cached:
@@ -205,7 +229,9 @@ class TMDBApiService(TMDBService):
                 unique_movies_dict[movie_id] = movie
         return list(unique_movies_dict.values())
 
-    async def _fetch_and_cache_top_movies(self, total_movies: int = 10000, batch_size: int = 50) -> int:
+    async def _fetch_and_cache_top_movies(
+        self, total_movies: int = 10000, batch_size: int = 50
+    ) -> int:
         movies_per_page = 20
         total_pages = (total_movies + movies_per_page - 1) // movies_per_page
         genre_map = self._get_genre_map()
@@ -213,7 +239,10 @@ class TMDBApiService(TMDBService):
         async with httpx.AsyncClient() as client:
             for page_start in range(1, total_pages + 1, batch_size):
                 page_tasks = [
-                    self._fetch_page(client, page) for page in range(page_start, min(page_start + batch_size, total_pages + 1))
+                    self._fetch_page(client, page)
+                    for page in range(
+                        page_start, min(page_start + batch_size, total_pages + 1)
+                    )
                 ]
                 page_results = await asyncio.gather(*page_tasks)
                 for page in page_results:
@@ -223,8 +252,12 @@ class TMDBApiService(TMDBService):
             movies = []
             for i in range(0, len(all_movies_raw), batch_size):
                 batch = all_movies_raw[i : i + batch_size]
-                detail_tasks = [self._fetch_details(client, m, genre_map) for m in batch]
-                movies.extend([m for m in await asyncio.gather(*detail_tasks) if m is not None])
+                detail_tasks = [
+                    self._fetch_details(client, m, genre_map) for m in batch
+                ]
+                movies.extend(
+                    [m for m in await asyncio.gather(*detail_tasks) if m is not None]
+                )
                 await asyncio.sleep(1)
         # Deduplicate by movie id
         unique_movies = self._deduplicate_movies_by_id(movies)
@@ -242,7 +275,12 @@ class TMDBApiService(TMDBService):
         return len(unique_movies)
 
     async def _fetch_page(self, client, page):
-        params = {"api_key": self.api_key, "language": "en-US", "sort_by": "popularity.desc", "page": page}
+        params = {
+            "api_key": self.api_key,
+            "language": "en-US",
+            "sort_by": "popularity.desc",
+            "page": page,
+        }
         resp = await client.get(f"{self.base_url}/discover/movie", params=params)
         resp.raise_for_status()
         return resp.json()["results"]
@@ -250,7 +288,8 @@ class TMDBApiService(TMDBService):
     async def _fetch_details(self, client, m, genre_map):
         try:
             details_resp = await client.get(
-                f"{self.base_url}/movie/{m['id']}", params={"api_key": self.api_key, "language": "en-US"}
+                f"{self.base_url}/movie/{m['id']}",
+                params={"api_key": self.api_key, "language": "en-US"},
             )
             if details_resp.status_code == 404:
                 return None  # Movie not found, skip it
@@ -262,7 +301,9 @@ class TMDBApiService(TMDBService):
             return {
                 "id": str(m["id"]),
                 "title": m["title"],
-                "year": int(m["release_date"].split("-")[0]) if m.get("release_date") else 0,
+                "year": (
+                    int(m["release_date"].split("-")[0]) if m.get("release_date") else 0
+                ),
                 "duration": details.get("runtime", 0),
                 "genres": genres,
                 "countries": (

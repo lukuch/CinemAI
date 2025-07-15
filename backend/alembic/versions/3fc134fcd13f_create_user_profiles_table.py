@@ -28,7 +28,9 @@ def upgrade() -> None:
         sa.Column("clusters", sa.JSON(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
     )
-    op.create_index(op.f("ix_user_profiles_user_id"), "user_profiles", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_user_profiles_user_id"), "user_profiles", ["user_id"], unique=False
+    )
     # ### end Alembic commands ###
 
 
