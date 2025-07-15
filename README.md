@@ -42,6 +42,9 @@ When a user uploads their watch history:
   - **> 500 movies**: HDBSCAN with minimum cluster size of 10
 - **Profile Storage**: Saves user profile with clusters to PostgreSQL for future use
 
+The following plot shows an example of user taste clusters, visualized using t-SNE on movie embeddings:
+![User Taste Visualization](user_profile.png)
+
 ### 2. User Profile Retrieval
 The system retrieves an existing user profile from the database:
 
